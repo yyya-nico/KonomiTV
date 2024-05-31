@@ -1,5 +1,6 @@
 
 import { fileURLToPath, URL } from 'node:url';
+import { resolve } from 'path';
 
 import vue from '@vitejs/plugin-vue';
 import { defineConfig } from 'vite';
@@ -21,6 +22,10 @@ export default defineConfig({
     build: {
         chunkSizeWarningLimit: 3 * 1024 * 1024,  // 3MB に緩和
         rollupOptions: {
+            input: {
+                top: resolve(__dirname, 'index.html'),
+                wholech: resolve(__dirname, 'wholech/index.html'),
+            },
             output: {
                 assetFileNames: (assetInfo) => {
                     // フォントファイルのみ、ハッシュを付けずに assets/fonts/ に出力する
@@ -121,7 +126,7 @@ export default defineConfig({
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
                 // /api/ 以下のリクエストでは index.html を返さない
-                navigateFallbackDenylist: [/^\/api/],
+                navigateFallbackDenylist: [/^\/api/, /^\/wholech/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }
