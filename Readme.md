@@ -7,6 +7,7 @@
 あとはいろいろ操作してみたらわかる。
 
 ここまで追記
+- - -
 
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/153729504-2c047f35-c788-49d2-a088-cc1c3bab3fd0.png"><br>
 
