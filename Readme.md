@@ -1,6 +1,15 @@
 
 # <img width="350" src="https://user-images.githubusercontent.com/39271166/134050201-8110f076-a939-4b62-8c86-7beaa3d4728c.png" alt="KonomiTV">　<!-- omit in toc -->
 
+これはKonomiTVに地デジ多チャンネルを同時に見るページを付け足すフォークです。  
+勘で編集したので不具合があるかもしれません。  
+地デジ タブ内の「全てのチャンネルを視聴」をクリックすると視聴を開始します。  
+あとはいろいろ操作してみたらわかる。
+
+ここまで追記
+- - -
+
+
 <img width="100%" src="https://user-images.githubusercontent.com/39271166/153729504-2c047f35-c788-49d2-a088-cc1c3bab3fd0.png"><br>
 
 いろいろな場所とデバイスでテレビと録画を快適に見れる、モダンな Web ベースのソフトウェアです。
