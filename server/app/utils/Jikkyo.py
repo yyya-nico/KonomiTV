@@ -10,8 +10,10 @@ import re
 import xml.etree.ElementTree as ET
 from datetime import datetime
 from typing import Any, cast, ClassVar, Literal, NotRequired, TypedDict
+from zoneinfo import ZoneInfo
 
 from app import schemas
+from app.config import Config
 from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH, NICONICO_OAUTH_CLIENT_ID
 from app.models.User import User
 from app.utils import Interlaced
@@ -213,6 +215,36 @@ class Jikkyo:
         更新したステータスは getStatus() で取得できる
         """
 
+        # ニコニコ実況の代わりに NX-Jikkyo からリアルタイムに実況コメントを取得する場合は、常に NX-Jikkyo の API からステータスを取得する
+        CONFIG = Config()
+        if CONFIG.tv.use_nx_jikkyo_instead is True:
+
+            # NX-Jikkyo の API から実況チャンネルのステータスを取得する
+            try:
+                async with HTTPX_CLIENT() as client:
+                    response = await client.get('https://nx-jikkyo.tsukumijima.net/api/v1/channels')
+                    response.raise_for_status()
+                    channels_data = response.json()
+            except (httpx.NetworkError, httpx.TimeoutException, httpx.HTTPStatusError):
+                return  # ステータス更新を中断
+
+            # 現在時刻に対応するスレッドを取得する
+            current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
+            for channel in channels_data:
+                jikkyo_id = channel['id']
+                if jikkyo_id in cls.jikkyo_nicolive_id_table:
+                    for thread in channel['threads']:
+                        if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
+                            cls.jikkyo_channels_status[jikkyo_id] = {
+                                'force': thread['jikkyo_force'],
+                                'viewers': thread['viewers'],
+                                'comments': thread['comments'],
+                            }
+                            break
+
+            # getchannels API からは取得しない
+            return
+
         # getchannels API から実況チャンネルのステータスを取得する
         ## 3秒応答がなかったらタイムアウト
         try:
@@ -334,6 +366,15 @@ class Jikkyo:
         # 廃止されたなどの理由でニコ生上の実況チャンネル/コミュニティ ID が取得できていない
         if self.jikkyo_nicolive_id is None:
             return schemas.JikkyoSession(is_success=False, detail='このチャンネルはニコニコ実況に対応していません。')
+
+        # ニコニコ実況の代わりに NX-Jikkyo からリアルタイムに実況コメントを取得する場合は、常に実況 ID を入れた WebSocket URL を返す
+        CONFIG = Config()
+        if CONFIG.tv.use_nx_jikkyo_instead is True:
+            return schemas.JikkyoSession(
+                is_success = True,
+                audience_token = f'wss://nx-jikkyo.tsukumijima.net/api/v1/channels/{self.jikkyo_id}/ws/watch',
+                detail = '視聴セッションを取得しました。',
+            )
 
         # ニコ生の視聴ページの HTML を取得する
         ## 結構重いんだけど、ログインなしで視聴セッションを取るには視聴ページのスクレイピングしかない（はず）

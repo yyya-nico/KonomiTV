@@ -281,6 +281,7 @@ class _ServerSettingsServer(BaseModel):
         return port
 
 class _ServerSettingsTV(BaseModel):
+    use_nx_jikkyo_instead: bool = False
     max_alive_time: PositiveInt = 10
     debug_mode_ts_path: FilePath | None = None
 

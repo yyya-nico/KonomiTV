@@ -55,6 +55,12 @@ class LiveCommentManager implements PlayerManager {
     // destroy() 時に EventListener を全解除するための AbortController
     private abort_controller: AbortController = new AbortController();
 
+    // NX-Jikkyo から視聴セッションを取得したかどうか
+    private is_nx_jikkyo_server_session = false;
+
+    // 再接続中かどうか
+    private reconnecting = false;
+
     // 破棄済みかどうか
     private destroyed = false;
 
@@ -132,6 +138,10 @@ class LiveCommentManager implements PlayerManager {
             };
         }
 
+        // 視聴セッション WebSocket の URL に 'nicovideo.jp' が含まれない場合は
+        // NX-Jikkyo から視聴セッションを取得したとみなす
+        this.is_nx_jikkyo_server_session = watch_session_info.audience_token!.includes('nicovideo.jp') === false;
+
         // 視聴セッション WebSocket を開く
         this.watch_session = new WebSocket(watch_session_info.audience_token!);
 
@@ -151,7 +161,7 @@ class LiveCommentManager implements PlayerManager {
         }, { signal: this.abort_controller.signal });
 
         // 視聴セッションの接続が閉じられたとき（ネットワークが切断された場合など）
-        this.watch_session.addEventListener('close', async (event) => {
+        const on_close = async (event: CloseEvent | Event) => {
 
             // すでに disconnect メッセージが送られてきている場合は何もしない
             if (is_disconnect_message_received === true) {
@@ -159,17 +169,20 @@ class LiveCommentManager implements PlayerManager {
             }
 
             // 接続切断の理由を表示
+            const code = (event instanceof CloseEvent) ? event.code : 'Error';
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
-                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${event.code})`, undefined, undefined, '#FF6F6A');
+                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
             }
-            console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${event.code})`);
+            console.error(`[LiveCommentManager][WatchSession] Connection closed. (Code: ${code})`);
 
-            // 10 秒ほど待ってから再接続する
+            // 3 秒ほど待ってから再接続する
             // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
-            await Utils.sleep(10);
+            await Utils.sleep(3);
             await this.reconnect();
 
-        }, { signal: this.abort_controller.signal });
+        };
+        this.watch_session.addEventListener('close', on_close, { signal: this.abort_controller.signal });
+        this.watch_session.addEventListener('error', on_close, { signal: this.abort_controller.signal });
 
         // 視聴セッション WebSocket からメッセージを受信したとき
         // 視聴セッションはコメント送信時のために維持し続ける必要がある
@@ -249,8 +262,8 @@ class LiveCommentManager implements PlayerManager {
                     }
                     console.error(`[LiveCommentManager][WatchSession] Error occurred. (Code: ${message.data.code})`);
 
-                    // 5 秒ほど待ってから再接続する
-                    await Utils.sleep(5);
+                    // 3 秒ほど待ってから再接続する
+                    await Utils.sleep(3);
                     await this.reconnect();
                     break;
                 }
@@ -308,8 +321,8 @@ class LiveCommentManager implements PlayerManager {
                     }
                     console.error(`[LiveCommentManager][WatchSession] Disconnected. (Reason: ${message.data.reason})`);
 
-                    // 5 秒ほど待ってから再接続する
-                    await Utils.sleep(5);
+                    // 3 秒ほど待ってから再接続する
+                    await Utils.sleep(3);
                     await this.reconnect();
                     break;
                 }
@@ -380,7 +393,7 @@ class LiveCommentManager implements PlayerManager {
                         thread: comment_session_info.thread_id,  // スレッド ID
                         threadkey: comment_session_info.your_post_key,  // スレッドキー
                         user_id: '',  // ユーザー ID（設定不要らしい）
-                        res_from: -50,  // 最初にコメントを 50 個送信する
+                        res_from: -100,  // 最初にコメントを 100 個送信する
                     }
                 },
                 {ping: {content: 'pf:0'}},
@@ -388,6 +401,25 @@ class LiveCommentManager implements PlayerManager {
             ]));
 
         }, { signal: this.abort_controller.signal });
+
+        // コメントセッションの接続が閉じられたとき（ネットワークが切断された場合など）
+        const on_close = async (event: CloseEvent | Event) => {
+
+            // 接続切断の理由を表示
+            const code = (event instanceof CloseEvent) ? event.code : 'Error';
+            if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
+                this.player.notice(`ニコニコ実況との接続が切断されました。(Code: ${code})`, undefined, undefined, '#FF6F6A');
+            }
+            console.error(`[LiveCommentManager][CommentSession] Connection closed. (Code: ${code})`);
+
+            // 3 秒ほど待ってから再接続する
+            // ニコ生側から切断された場合と異なりネットワークが切断された可能性が高いので、間を多めに取る
+            // 視聴セッション側が同時に切断され再接続中の場合、this.reconnect() は何も行わない
+            await Utils.sleep(3);
+            await this.reconnect();
+        };
+        this.comment_session.addEventListener('close', on_close, { signal: this.abort_controller.signal });
+        this.comment_session.addEventListener('error', on_close, { signal: this.abort_controller.signal });
 
         // 受信したコメントをイベントリスナーに送信する関数
         // スロットルを設定し、333ms 未満の間隔でイベントが発火しないようにする
@@ -513,21 +545,24 @@ class LiveCommentManager implements PlayerManager {
         }
 
         // ログイン関連のバリデーション
-        if (user_store.user === null) {
-            options.error('コメントするには、KonomiTV アカウントにログインしてください。');
-            return;
-        }
-        if (user_store.user.niconico_user_id === null) {
-            options.error('コメントするには、ニコニコアカウントと連携してください。');
-            return;
-        }
-        if (user_store.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
-            options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-            return;
-        }
-        if (user_store.user.niconico_user_premium === false && options.data.size === 'big') {
-            options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
-            return;
+        // ニコニコ実況公式コメントサーバーの場合のみ実行
+        if (this.is_nx_jikkyo_server_session === false) {
+            if (user_store.user === null) {
+                options.error('コメントするには、KonomiTV アカウントにログインしてください。');
+                return;
+            }
+            if (user_store.user.niconico_user_id === null) {
+                options.error('コメントするには、ニコニコアカウントと連携してください。');
+                return;
+            }
+            if (user_store.user.niconico_user_premium === false && (options.data.type === 'top' || options.data.type === 'bottom')) {
+                options.error('コメントを上下に固定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
+            if (user_store.user.niconico_user_premium === false && options.data.size === 'big') {
+                options.error('コメントサイズを大きめに設定するには、ニコニコアカウントのプレミアム会員登録が必要です。');
+                return;
+            }
         }
 
         // 視聴セッションが null か、接続が既に切れている場合
@@ -598,7 +633,7 @@ class LiveCommentManager implements PlayerManager {
                             text: options.data.text,  // コメント本文
                             time: dayjs().format('HH:mm:ss'),  // 現在時刻
                             playback_position: this.player.video.currentTime,  // 現在の再生位置
-                            user_id: `${user_store.user!.niconico_user_id!}`,  // ニコニコユーザー ID
+                            user_id: `${user_store.user?.niconico_user_id ?? 'Unknown'}`,  // ニコニコユーザー ID
                             my_post: true,  // 自分のコメントであることを示すフラグ
                         }
                     });
@@ -638,7 +673,21 @@ class LiveCommentManager implements PlayerManager {
     private async reconnect(): Promise<void> {
         const player_store = usePlayerStore();
 
+        // 現在再接続中ではない && 視聴セッションとコメントセッションのどちらも開かれている場合のみ終了
+        // 現在再接続中であっても視聴セッションとコメントセッションのどちらかが閉じられている場合は、
+        // this.initWatchSession() から再帰的に reconnect() が呼ばれた可能性が高いため続行する
+        const is_watch_session_closed = (this.watch_session !== null &&
+            (this.watch_session.readyState === WebSocket.CLOSING || this.watch_session.readyState === WebSocket.CLOSED));
+        const is_comment_session_closed = (this.comment_session !== null &&
+            (this.comment_session.readyState === WebSocket.CLOSING || this.comment_session.readyState === WebSocket.CLOSED));
+        if (this.reconnecting === true &&
+            is_watch_session_closed === false &&
+            is_comment_session_closed === false) {
+            return;
+        }
+
         // 再接続を開始
+        this.reconnecting = true;
         console.warn('[LiveCommentManager] Reconnecting...');
         if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
             this.player.notice('ニコニコ実況に再接続しています…');
@@ -660,6 +709,11 @@ class LiveCommentManager implements PlayerManager {
             if (this.player.template.notice.textContent!.includes('再起動しています…') === false) {
                 this.player.notice(watch_session_info.detail, undefined, undefined, '#FF6F6A');
             }
+
+            // 視聴セッションへの接続情報自体を取得できなかったので再接続を諦める
+            // 視聴セッションへの接続情報は取得できたが、また WebSocket が予期せず閉じられてしまった場合は
+            // 上記 this.initWatchSession() 内で再度この this.reconnect() が再帰的に呼ばれる
+            this.reconnecting = false;
             return;
         }
 
@@ -667,6 +721,12 @@ class LiveCommentManager implements PlayerManager {
         // 取得したコメントサーバーへの接続情報を使い、非同期でコメントセッションを初期化
         this.initCommentSession(watch_session_info);
 
+        // ここまできたら再初期化が完了しているので破棄済みかどうかのフラグを false にする
+        // ここでフラグを false にしないと再接続後にコメントリストにコメントが送信されない
+        this.destroyed = false;
+
+        // 再接続完了
+        this.reconnecting = false;
         console.warn('[LiveCommentManager] Reconnected.');
     }
 

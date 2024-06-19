@@ -86,6 +86,7 @@ export interface IServerSettings {
         custom_https_private_key: string | null;
     };
     tv: {
+        use_nx_jikkyo_instead: boolean;
         max_alive_time: number;
         debug_mode_ts_path: string | null;
     };
@@ -115,6 +116,7 @@ export const IServerSettingsDefault: IServerSettings = {
         custom_https_private_key: null,
     },
     tv: {
+        use_nx_jikkyo_instead: false,
         max_alive_time: 10,
         debug_mode_ts_path: null,
     },
