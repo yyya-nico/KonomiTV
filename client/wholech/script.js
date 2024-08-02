@@ -254,8 +254,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                     reloadButton.addEventListener('click', e => {
                         e.stopPropagation();
                         player.unload();
-                        player.load();
-                        player.play();
+                        if (e.shiftKey) {
+                            alert('Shiftキーを押しながらクリックしたため、読み込み停止をしました。');
+                        } else {
+                            player.load();
+                            player.play();
+                        }
                     });
                     setTimeout(resolve, 500);
                     player.load();
