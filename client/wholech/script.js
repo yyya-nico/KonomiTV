@@ -217,11 +217,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <img class="broadcast-logo" src="/api/channels/${ch.id}/logo" alt="${ch.name}">
                 </div>
                 <div class="broadcast-title">
-                    <span class="broadcast-title-id">${ch.program_present.title}</span>
+                    <span class="broadcast-title-id">${ch.program_present?.title ?? '(情報なし)'}</span>
                     <div class="broadcast-time">
-                        <span class="broadcast-start">${getFormattedTime(ch.program_present.start_time)}</span>
+                        <span class="broadcast-start">${ch.program_present ? getFormattedTime(ch.program_present.start_time) : '--:--'}</span>
                         <span class="broadcast-to">～</span>
-                        <span class="broadcast-end">${getFormattedTime(ch.program_present.end_time)}</span>
+                        <span class="broadcast-end">${ch.program_present ? getFormattedTime(ch.program_present.end_time) : '--:--'}</span>
                     </div>
                 </div>
             </div>
@@ -289,18 +289,18 @@ document.addEventListener('DOMContentLoaded', async () => {
             };
             const diffFrom = Object.values(programMetaElems).map(elem => elem.textContent);
             const diffTo = [
-                ch.program_present.title,
-                getFormattedTime(ch.program_present.start_time),
-                getFormattedTime(ch.program_present.end_time)
+                ch.program_present?.title ?? '(情報なし)',
+                ch.program_present ? getFormattedTime(ch.program_present.start_time) : '--:--',
+                ch.program_present ? getFormattedTime(ch.program_present.end_time) : '--:--'
             ];
             const changed = diffFrom.toString() !== diffTo.toString();
             if (changed) {
                 const html =
-                `<span class="broadcast-title-id">${ch.program_present.title}</span>
+                `<span class="broadcast-title-id">${ch.program_present?.title ?? '(情報なし)'}</span>
                     <div class="broadcast-time">
-                        <span class="broadcast-start">${getFormattedTime(ch.program_present.start_time)}</span>
+                        <span class="broadcast-start">${ch.program_present ? getFormattedTime(ch.program_present.start_time) : '--:--'}</span>
                         <span class="broadcast-to">～</span>
-                        <span class="broadcast-end">${getFormattedTime(ch.program_present.end_time)}</span>
+                        <span class="broadcast-end">${ch.program_present ? getFormattedTime(ch.program_present.end_time) : '--:--'}</span>
                     </div>
                 </div>`;
                 broadcastTitle.innerHTML = html;
