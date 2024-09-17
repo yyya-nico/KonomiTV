@@ -18,10 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends aria2 ca-certif
 ## サードパーティーライブラリは変更が少ないので、先にダウンロード処理を実行してビルドキャッシュを効かせる
 WORKDIR /
 ## リリース版用
-RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.10.1/thirdparty-linux.tar.xz
+RUN aria2c -x10 https://github.com/tsukumijima/KonomiTV/releases/download/v0.11.0/thirdparty-linux.tar.xz
 RUN tar xvf thirdparty-linux.tar.xz
 ## 開発版 (0.x.x-dev) 用
-# RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/9164924503/thirdparty-linux.tar.xz.zip
+# RUN aria2c -x10 https://nightly.link/tsukumijima/KonomiTV/actions/runs/10714539752/thirdparty-linux.tar.xz.zip
 # RUN unzip thirdparty-linux.tar.xz.zip && tar xvf thirdparty-linux.tar.xz
 
 # --------------------------------------------------------------------------------------------------------------
@@ -29,7 +29,7 @@ RUN tar xvf thirdparty-linux.tar.xz
 # クライアントのビルド成果物 (dist) は Git に含まれているが、万が一ビルドし忘れたりや開発ブランチでの利便性を考慮してビルドしておく
 # --------------------------------------------------------------------------------------------------------------
 
-FROM node:18.17.1 AS client-builder
+FROM node:20.16.0 AS client-builder
 
 # 依存パッケージリスト (package.json/yarn.lock) だけをコピー
 WORKDIR /code/client/

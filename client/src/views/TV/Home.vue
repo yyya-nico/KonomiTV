@@ -4,6 +4,7 @@
         <main>
             <Navigation />
             <div class="channels-container channels-container--home" :class="{'channels-container--loading': is_loading}">
+                <SPHeaderBar />
                 <div class="channels-tab">
                     <div class="channels-tab__buttons" :style="{
                         '--tab-length': Array.from(channelsStore.channels_list_with_pinned).length,
@@ -51,7 +52,7 @@
                                         </div>
                                     </div>
                                     <div v-ripple class="channel__broadcaster-pin"
-                                        v-tooltip="isPinnedChannel(channel) ? 'ピン留めを外す' : 'ピン留めする'"
+                                        v-ftooltip="isPinnedChannel(channel) ? 'ピン留めを外す' : 'ピン留めする'"
                                         :class="{'channel__broadcaster-pin--pinned': isPinnedChannel(channel)}"
                                         @click.prevent.stop="isPinnedChannel(channel) ? removePinnedChannel(channel) : addPinnedChannel(channel)"
                                         @mousedown.prevent.stop=""> <!-- ← 親要素の波紋が広がらないように -->
@@ -111,6 +112,12 @@
                 </div>
             </div>
         </main>
+        <div v-ripple class="floating-button" @click="Message.warning('番組表は現在開発中です。')">
+            <div class="floating-button__content">
+                <Icon class="floating-button__icon" icon="fluent:calendar-20-regular" width="26px" />
+                <div class="floating-button__text">番組表</div>
+            </div>
+        </div>
     </div>
 </template>
 <script lang="ts">
@@ -123,6 +130,7 @@ import { defineComponent } from 'vue';
 
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
 import Message from '@/message';
 import { ILiveChannel } from '@/services/Channels';
 import useChannelsStore from '@/stores/ChannelsStore';
@@ -132,6 +140,7 @@ import Utils, { ChannelUtils, ProgramUtils } from '@/utils';
 export default defineComponent({
     name: 'TV-Home',
     components: {
+        SPHeaderBar,
         HeaderBar,
         Navigation,
         Swiper,
@@ -144,6 +153,7 @@ export default defineComponent({
             Utils: Object.freeze(Utils),
             ChannelUtils: Object.freeze(ChannelUtils),
             ProgramUtils: Object.freeze(ProgramUtils),
+            Message: Object.freeze(Message),
 
             // 現在アクティブなタブ
             active_tab_index: 0 as number,
@@ -407,6 +417,7 @@ export default defineComponent({
         overflow: hidden;
 
         @include smartphone-vertical {
+            min-height: calc(100% - 54px - var(--channels-tab-height) + var(--bottom-navigation-height) + 1px);
             padding-left: 8px;
             padding-right: 8px;
         }
@@ -993,6 +1004,39 @@ export default defineComponent({
                 }
             }
         }
+    }
+}
+
+.floating-button {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    bottom: 72px;
+    right: 20px;
+    padding: 12px 16px;
+    background: rgb(var(--v-theme-background-lighten-2));
+    box-shadow: 0px 4px 7.5px rgba(0, 0, 0, 0.61);
+    border-radius: 12px;
+    user-select: none;
+    cursor: pointer;
+    z-index: 1005;
+    @include smartphone-vertical {
+        display: flex;
+    }
+
+    &__content {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    &__text {
+        margin-left: 8px;
+        margin-right: 2px;
+        color: #FFEAEA;
+        font-size: 16px;
+        font-weight: 500;
     }
 }
 

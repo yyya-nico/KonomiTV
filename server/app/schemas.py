@@ -6,10 +6,11 @@ from __future__ import annotations
 from datetime import date
 from datetime import datetime
 from pydantic import BaseModel
+from pydantic import computed_field
 from pydantic import Field
 from pydantic import RootModel
 from tortoise.contrib.pydantic import PydanticModel
-from typing import Annotated, Literal, Union
+from typing import Annotated, Any, Literal, Union
 from typing_extensions import TypedDict
 
 
@@ -240,6 +241,9 @@ class UserUpdateRequestForAdmin(BaseModel):
 
 # ***** Twitter 連携 *****
 
+class TwitterCookieAuthRequest(BaseModel):
+    cookies_txt: str
+
 class TwitterPasswordAuthRequest(BaseModel):
     screen_name: str
     password: str
@@ -454,6 +458,18 @@ class DataBroadcastingInternetStatus(BaseModel):
 
 # ***** ニコニコ実況連携 *****
 
+class JikkyoWebSocketInfo(BaseModel):
+    # 視聴セッション維持用 WebSocket API の URL (NX-Jikkyo)
+    watch_session_url: str | None
+    # 視聴セッション維持用 WebSocket API の URL (ニコニコ生放送)
+    nicolive_watch_session_url: str | None = None
+    # 視聴セッション維持用 WebSocket API のエラー情報 (ニコニコ生放送)
+    nicolive_watch_session_error: str | None = None
+    # コメント受信用 WebSocket API の URL (NX-Jikkyo)
+    comment_session_url: str | None
+    # 現在は NX-Jikkyo のみ存在するニコニコ実況チャンネルかどうか
+    is_nxjikkyo_exclusive: bool
+
 class JikkyoComment(BaseModel):
     time: float
     type: Literal['top', 'right', 'bottom']
@@ -465,11 +481,6 @@ class JikkyoComment(BaseModel):
 class JikkyoComments(BaseModel):
     is_success: bool
     comments: list[JikkyoComment]
-    detail: str
-
-class JikkyoSession(BaseModel):
-    is_success: bool
-    audience_token: str | None = None
     detail: str
 
 class ThirdpartyAuthURL(BaseModel):
@@ -510,6 +521,23 @@ class TimelineTweetsResult(TwitterAPIResult):
     next_cursor_id: str
     previous_cursor_id: str
     tweets: list[Tweet]
+
+class TwitterChallengeData(TwitterAPIResult):
+    endpoint_infos: dict[str, TwitterGraphQLAPIEndpointInfo]
+    verification_code: str
+    challenge_js_code: str
+    challenge_animation_svg_codes: list[str]
+
+class TwitterGraphQLAPIEndpointInfo(BaseModel):
+    method: Literal['GET', 'POST']
+    query_id: str
+    endpoint: str
+    features: dict[str, Any] | None
+
+    @computed_field
+    @property
+    def path(self) -> str:
+        return f'/i/api/graphql/{self.query_id}/{self.endpoint}'
 
 # ***** ユーザー *****
 

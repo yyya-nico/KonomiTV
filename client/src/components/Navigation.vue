@@ -23,15 +23,20 @@
                         <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
                         <span class="navigation__link-text">録画予約</span>
                     </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/captures')}">
+                        <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
+                        <span class="navigation__link-text">キャプチャ</span>
+                    </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/mylist/"
                         :class="{'navigation__link--active': $route.path.startsWith('/mylist')}">
                         <Icon class="navigation__link-icon" icon="ic:round-playlist-play" width="26px" />
                         <span class="navigation__link-text">マイリスト</span>
                     </router-link>
-                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/captures/"
-                        :class="{'navigation__link--active': $route.path.startsWith('/captures')}">
-                        <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
-                        <span class="navigation__link-text">キャプチャ</span>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/viewing-history/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/viewing-history')}">
+                        <Icon class="navigation__link-icon" icon="fluent:history-20-regular" width="26px" />
+                        <span class="navigation__link-text">視聴履歴</span>
                     </router-link>
                     <v-spacer></v-spacer>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/settings/"
@@ -39,12 +44,13 @@
                         <Icon class="navigation__link-icon" icon="fluent:settings-20-regular" width="26px" />
                         <span class="navigation__link-text">設定</span>
                     </router-link>
-                    <a v-ripple class="navigation__link" active-class="navigation__link--active" href="https://github.com/tsukumijima/KonomiTV"
+                    <a v-ripple class="navigation__link" active-class="navigation__link--active"
+                        href="https://github.com/tsukumijima/KonomiTV" target="_blank"
                         :class="{
                             'navigation__link--develop-version': versionStore.is_client_develop_version,
                             'navigation__link--highlight': versionStore.is_update_available,
                         }"
-                        v-tooltip.top="versionStore.is_update_available ?
+                        v-ftooltip.top="versionStore.is_update_available ?
                             `アップデートがあります (version ${versionStore.latest_version})` : ''">
                         <Icon class="navigation__link-icon" icon="fluent:info-16-regular" width="26px" />
                         <span class="navigation__link-text">version {{versionStore.client_version}}</span>

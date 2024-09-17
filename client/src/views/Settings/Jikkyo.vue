@@ -46,10 +46,25 @@
                     <Icon icon="fluent:plug-disconnected-20-filled" class="mr-2" height="26" />連携解除
                 </v-btn>
             </div>
-            <div class="settings__item-label mt-7" style="border-left: 3px solid rgb(var(--v-theme-text-darken-1)); padding-left: 12px;">
-                コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
-                <div class="mt-1"></div>
-                <a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> の代わりに <a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> の実況コメントをリアルタイム表示するには、<router-link class="link" to="/settings/server">サーバー設定</router-link> → ［テレビのライブストリーミング］に移動してください。
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="prefer_posting_to_nicolive">可能であればニコニコ実況にコメントする</label>
+                <label class="settings__item-label" for="prefer_posting_to_nicolive">
+                    <ul class="ml-4 mb-2 font-weight-bold">
+                        <li>オン：<a class="link" href="https://jk.nicovideo.jp" target="_blank">ニコニコ実況</a> に優先的にコメントを送信</li>
+                        <li>オフ：<a class="link" href="https://nx-jikkyo.tsukumijima.net" target="_blank">NX-Jikkyo</a> にコメントを送信</li>
+                    </ul>
+                    ニコニコ実況が利用できない場合（BS 民放など公式では廃止された実況チャンネル・ニコニコ生放送のメンテナンス中など）は、常に NX-Jikkyo にコメントします。
+                </label>
+                <label class="settings__item-label mt-2" for="prefer_posting_to_nicolive">
+                    ニコニコ実況にコメントするには、ニコニコアカウントとの連携が必要です。<br>
+                    NX-Jikkyo は「ニコニコ実況の Web 版非公式コメントビューア」＋「ニコニコ実況公式にない実況チャンネルを補完する互換コメントサーバー」で、アカウント不要でコメントできます。<br>
+                </label>
+                <label class="settings__item-label mt-2" for="prefer_posting_to_nicolive">
+                    ニコニコアカウント未連携でのコメント送信時に「代わりに NX-Jikkyo にコメントします」という通知を表示しないようにするには、この設定をオフにしてください。
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="prefer_posting_to_nicolive" hide-details
+                    v-model="settingsStore.settings.prefer_posting_to_nicolive">
+                </v-switch>
             </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントのミュート設定</div>
@@ -70,6 +85,9 @@
                 <Icon icon="heroicons-solid:filter" height="19px" />
                 <span class="ml-1">コメントのミュート設定を開く</span>
             </v-btn>
+            <div class="settings__quote mt-7">
+                コメントの透明度は、プレイヤー下にある設定アイコン ⚙️ から変更できます。<br>
+            </div>
             <div class="settings__item">
                 <div class="settings__item-heading">コメントの速さ</div>
                 <div class="settings__item-label">

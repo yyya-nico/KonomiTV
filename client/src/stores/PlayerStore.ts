@@ -24,6 +24,7 @@ export type PlayerEvents = {
     // PlayerManager からプレイヤーの再起動が必要になったことを通知する
     PlayerRestartRequired: {
         message?: string;  // プレイヤーに通知するメッセージ
+        message_delay_seconds?: number;  // メッセージを表示するまでの待機時間 (秒)
         is_error_message?: boolean;  // メッセージをエラーメッセージとして表示するか (既定は true)
     };
     // PlayerController.setControlDisplayTimer() をそのまま呼び出す
@@ -135,6 +136,9 @@ const usePlayerStore = defineStore('player', {
 
         // キーボードショートカットの一覧のモーダルを表示するか
         shortcut_key_modal: false,
+
+        // L字画面のクロップ設定のモーダルを表示するか
+        lshaped_screen_crop_settings_modal: false,
 
         // ライブ視聴: 現在のライブストリームのステータス
         // 既定で null (未視聴) とする

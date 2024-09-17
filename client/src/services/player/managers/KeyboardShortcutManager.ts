@@ -93,6 +93,13 @@ class KeyboardShortcutManager implements PlayerManager {
         const tweet_form_element = document.querySelector<HTMLDivElement>('.tweet-form__textarea')!;
         const tweet_button_element = document.querySelector<HTMLButtonElement>('.tweet-button')!;
 
+        // 検索結果更新ボタンの HTML 要素を取得
+        // Twitter パネルコンポーネントが視聴画面に追加されていることが前提
+        const search_update_button_element = document.querySelector<HTMLButtonElement>('.search-header__refresh')!;
+        // タイムライン更新ボタンの HTML 要素を取得
+        // Twitter パネルコンポーネントが視聴画面に追加されていることが前提
+        const timeline_update_button_element = document.querySelector<HTMLButtonElement>('.timeline-header__refresh')!;
+
         // データ放送リモコンの各ボタンの HTML 要素を取得
         // データ放送リモコンコンポーネントが視聴画面に追加されていることが前提
         // ビデオ視聴時はデータ放送リモコンコンポーネントが表示されないためすべて null になる
@@ -135,6 +142,15 @@ class KeyboardShortcutManager implements PlayerManager {
 
             // Space: 再生 / 一時停止の切り替え
             {mode: 'Both', key: 'Space', repeat: false, ctrl: false, shift: false, alt: false, handler: () => {
+                this.player.toggle();
+            }},
+
+            // Shift + Space: 再生 / 一時停止の切り替え
+            // キャプチャタブではツイート対象のキャプチャを選択する際に Space キーを使っているため、再生 / 一時停止の切り替えのショートカットが使えない
+            // そこでキャプチャタブ表示中でも、Shift + Space キーを押せば再生 / 一時停止の切り替えを行えるようにしている
+            // 以前はキャプチャタブ表示中のみ使えるショートカットだったが、キャプチャタブ以外を開いた際にキーが効かずに混乱することが分かったため、
+            // 現在は常時 Space と Shift + Space 両方のショートカットを使えるようにしている
+            {mode: 'Both', key: 'Space', repeat: false, ctrl: false, shift: true, alt: false, handler: () => {
                 this.player.toggle();
             }},
 
@@ -597,32 +613,6 @@ class KeyboardShortcutManager implements PlayerManager {
                 return;
             }
 
-            // Shift + Space: 再生 / 一時停止の切り替え
-            // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
-            // かつパネルで Twitter タブが表示されていて、Twitter タブ内でキャプチャタブが表示されているときのみ有効
-            // キャプチャタブではツイート対象のキャプチャを選択する際に Space キーを使っているため、再生 / 一時停止の切り替えのショートカットが使えない
-            // そこでキャプチャタブ表示中のみ、代わりに Shift + Space キーで再生 / 一時停止の切り替えを行えるようにしている
-            // フォーカスが input or textarea にあるときは誤動作防止のため無効化
-            if ((event.code === 'Space') &&
-                (is_repeat === false) &&
-                (is_ctrl_or_cmd_pressed === false) &&
-                (is_shift_pressed === true) &&
-                (is_alt_pressed === false) &&
-                (player_store.is_document_pip === false) &&
-                (player_store.is_panel_display === true) &&
-                (panel_active_tab === 'Twitter') &&
-                (player_store.twitter_active_tab === 'Capture') &&
-                (is_form_focused === false)) {
-
-                // 再生 / 一時停止の切り替え
-                this.player.toggle();
-
-                // 既定のキーボードショートカットイベントをキャンセルして終了
-                event.preventDefault();
-                event.stopPropagation();
-                return;
-            }
-
             // Twitter タブ内のキャプチャタブ専用の、キャプチャ選択操作用キーボードショートカット
             // キーリピート状態でも実行する
             // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
@@ -770,6 +760,44 @@ class KeyboardShortcutManager implements PlayerManager {
                     event.stopPropagation();
                     return;
                 }
+            }
+
+            // ＼(｜): 検索結果を更新
+            // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
+            // かつパネルで Twitter タブが表示されていて、Twitter タブ内でツイート検索タブが表示されているときのみ有効
+            if ((event.code === 'IntlYen') &&
+                (is_repeat === false) &&
+                (is_ctrl_or_cmd_pressed === false) &&
+                (is_shift_pressed === false) &&
+                (is_alt_pressed === false) &&
+                (player_store.is_document_pip === false) &&
+                (player_store.is_panel_display === true) &&
+                (panel_active_tab === 'Twitter') &&
+                (player_store.twitter_active_tab === 'Search') &&
+                (is_form_focused === false)) {
+
+                // 検索結果更新ボタンのクリックイベントを発生させる
+                search_update_button_element.click();
+                return;
+            }
+
+            // ＼(｜): タイムラインを更新
+            // Document Picture-in-Picture 表示状態ではなく、パネルが表示されていて、
+            // かつパネルで Twitter タブが表示されていて、Twitter タブ内でタイムラインタブが表示されているときのみ有効
+            if ((event.code === 'IntlYen') &&
+                (is_repeat === false) &&
+                (is_ctrl_or_cmd_pressed === false) &&
+                (is_shift_pressed === false) &&
+                (is_alt_pressed === false) &&
+                (player_store.is_document_pip === false) &&
+                (player_store.is_panel_display === true) &&
+                (panel_active_tab === 'Twitter') &&
+                (player_store.twitter_active_tab === 'Timeline') &&
+                (is_form_focused === false)) {
+
+                // タイムライン更新ボタンのクリックイベントを発生させる
+                timeline_update_button_element.click();
+                return;
             }
 
             // ***** 一般的なキーボードショートカットの処理 *****

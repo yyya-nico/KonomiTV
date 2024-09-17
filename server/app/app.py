@@ -45,7 +45,7 @@ from app.routers import (
 )
 from app.routers import VideoStreamsRouter
 from app.streams.LiveStream import LiveStream
-from app.utils.EDCB import EDCBTuner
+from app.utils.edcb.EDCBTuner import EDCBTuner
 
 
 # もし Config() の実行時に AssertionError が発生した場合は、LoadConfig() を実行してサーバー設定データをロードする
@@ -109,7 +109,6 @@ for suffix, mime_type in [
     ]:
     guess = mimetypes.guess_type(f'foo{suffix}')[0]
     if guess != mime_type:
-        logging.info(f'Override {suffix} MIME type: {guess} -> {mime_type}.')
         mimetypes.add_type(mime_type, suffix)
 
 # 静的ファイルの配信

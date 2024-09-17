@@ -16,9 +16,15 @@ export interface IMutedCommentKeywords {
  * サーバー側の app.config.ClientSettings で定義されているものと同じ
  */
 export interface IClientSettings {
+    last_synced_at: number;
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: string[];
+    // lshaped_screen_crop_enabled: 同期無効
+    // lshaped_screen_crop_zoom_level: 同期無効
+    // lshaped_screen_crop_x_position: 同期無効
+    // lshaped_screen_crop_y_position: 同期無効
+    // lshaped_screen_crop_zoom_origin: 同期無効
     pinned_channel_ids: string[];
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
@@ -44,8 +50,10 @@ export interface IClientSettings {
     // enable_internet_access_from_data_broadcasting: 同期無効
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
+    capture_filename_pattern: string;
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
+    prefer_posting_to_nicolive: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;
@@ -86,7 +94,6 @@ export interface IServerSettings {
         custom_https_private_key: string | null;
     };
     tv: {
-        use_nx_jikkyo_instead: boolean;
         max_alive_time: number;
         debug_mode_ts_path: string | null;
     };
@@ -116,7 +123,6 @@ export const IServerSettingsDefault: IServerSettings = {
         custom_https_private_key: null,
     },
     tv: {
-        use_nx_jikkyo_instead: false,
         max_alive_time: 10,
         debug_mode_ts_path: null,
     },
@@ -146,7 +152,7 @@ class Settings {
         }
 
         // クライアント側の IClientSettings とサーバー側の app.config.ClientSettings は、バージョン差などで微妙に並び替え順序などが異なることがある
-        // JSON シリアライズでの文字列比較を正しく行うため、厳密にクライアント側の IClientSettings と一致するように変換する
+        // ハッシュ化時の文字列比較を正しく行うため、厳密にクライアント側の IClientSettings と一致するように変換する
         return getSyncableClientSettings(response.data);
     }
 
@@ -154,12 +160,24 @@ class Settings {
     /**
      * クライアント設定を更新する
      * @param settings クライアント設定
+     * @return 成功した場合は true
      */
-    static async updateClientSettings(settings: IClientSettings): Promise<void> {
+    static async updateClientSettings(settings: IClientSettings): Promise<boolean> {
 
         // API リクエストを実行
-        // 正常時は 204 No Content が返るし、エラーは基本起こらないはずなので何もしない
-        await APIClient.put<IClientSettings>('/settings/client', settings);
+        const response = await APIClient.put<IClientSettings>('/settings/client', settings);
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'クライアント設定を更新できませんでした。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
     }
 
 

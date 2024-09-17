@@ -74,6 +74,10 @@ class TwitterAccount(TortoiseModel):
 
         logging.info(f'Twitter accounts update complete. ({round(time.time() - timestamp, 3)} sec)')
 
+        # せっかくなので Twitter GraphQL API のエンドポイント情報もここで更新する
+        from app.utils.TwitterGraphQLAPI import TwitterGraphQLAPI
+        await TwitterGraphQLAPI.updateEndpointInfos()
+
 
     def getTweepyAuthHandler(self) -> CookieSessionUserHandler:
         """
@@ -83,9 +87,10 @@ class TwitterAccount(TortoiseModel):
             CookieSessionUserHandler: tweepy の認証ハンドラー (Cookie セッション)
         """
 
-        # パスワード認証 (Cookie セッション) の場合
-        ## Cookie セッションでは access_token フィールドが "COOKIE_SESSION" の固定値になっている
-        if self.access_token == 'COOKIE_SESSION':
+        # Cookie ログイン or パスワードログイン の場合
+        ## Cookie ログインの場合は access_token フィールドが "DIRECT_COOKIE_SESSION" の固定値になっている
+        ## パスワードログインの場合は access_token フィールドが "COOKIE_SESSION" の固定値になっている
+        if self.access_token in ['DIRECT_COOKIE_SESSION', 'COOKIE_SESSION']:
 
             # access_token_secret から Cookie を取得
             cookies_dict: dict[str, str] = json.loads(self.access_token_secret)

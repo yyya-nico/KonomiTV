@@ -603,14 +603,28 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '100%';
                 (child as HTMLVideoElement).style.height = '100%';
-                // BML ブラウザのアスペクト比が 16:9 以外のケース (運用上は 720×480 のみ該当) に限定して適用する
-                if (this.bml_browser_width / this.bml_browser_height !== 16 / 9) {
-                    const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
-                    (child as HTMLVideoElement).style.transform = `scaleY(${magnification})`;
-                    (child as HTMLVideoElement).style.transformOrigin = 'center center';
-                } else {
-                    (child as HTMLVideoElement).style.transform = '';
-                    (child as HTMLVideoElement).style.transformOrigin = '';
+            }
+        }
+        // BML ブラウザのアスペクト比が 16:9 以外のケース (運用上は 720×480 のみ該当) に限定して適用する
+        if (this.bml_browser_width / this.bml_browser_height !== 16 / 9) {
+            const magnification = (this.bml_browser_height * 16 / 9) / this.bml_browser_width;
+            this.media_element.style.transform = `scaleY(${magnification})`;
+            this.media_element.style.transformOrigin = 'center center';
+            // 上記ケースでは親要素に映像のアスペクト比を矯正する目的で
+            // scaleY() が設定されるため、Canvas 要素のみ親要素の scaleY() を打ち消す縮小方向の scaleY() を設定する
+            for (const child of this.media_element.children) {
+                if (child instanceof HTMLCanvasElement) {
+                    child.style.transform = `scaleY(${1 / magnification})`;
+                    child.style.transformOrigin = 'center center';
+                }
+            }
+        } else {
+            this.media_element.style.transform = '';
+            this.media_element.style.transformOrigin = '';
+            for (const child of this.media_element.children) {
+                if (child instanceof HTMLCanvasElement) {
+                    child.style.transform = '';
+                    child.style.transformOrigin = '';
                 }
             }
         }
@@ -650,10 +664,14 @@ class LiveDataBroadcastingManager implements PlayerManager {
             if (child instanceof HTMLVideoElement) {
                 (child as HTMLVideoElement).style.width = '';
                 (child as HTMLVideoElement).style.height = '';
-                (child as HTMLVideoElement).style.transform = '';
-                (child as HTMLVideoElement).style.transformOrigin = '';
+            }
+            if (child instanceof HTMLCanvasElement) {
+                child.style.transform = '';
+                child.style.transformOrigin = '';
             }
         }
+        this.media_element.style.transform = '';
+        this.media_element.style.transformOrigin = '';
 
         this.is_video_element_moved_to_bml_browser = false;
     }

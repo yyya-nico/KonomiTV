@@ -1,4 +1,5 @@
 
+import { isEqual, hash } from 'ohash';
 import { defineStore } from 'pinia';
 
 import Settings, { IClientSettings, IMutedCommentKeywords } from '@/services/Settings';
@@ -16,9 +17,15 @@ export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps'
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
  */
 export interface ILocalClientSettings extends IClientSettings {
+    last_synced_at: number;
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
+    lshaped_screen_crop_enabled: boolean;
+    lshaped_screen_crop_zoom_level: number;
+    lshaped_screen_crop_x_position: number;
+    lshaped_screen_crop_y_position: number;
+    lshaped_screen_crop_zoom_origin: 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
     pinned_channel_ids: string[];
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
@@ -44,8 +51,10 @@ export interface ILocalClientSettings extends IClientSettings {
     enable_internet_access_from_data_broadcasting: boolean;
     capture_save_mode: 'Browser' | 'UploadServer' | 'Both';
     capture_caption_mode: 'VideoOnly' | 'CompositingCaption' | 'Both';
+    capture_filename_pattern: string;
     capture_copy_to_clipboard: boolean;
     sync_settings: boolean;
+    prefer_posting_to_nicolive: boolean;
     comment_speed_rate: number;
     comment_font_size: number;
     close_comment_form_after_sending: boolean;
@@ -73,12 +82,29 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 設定画面から直接変更できない設定値 *****
 
+    // 前回設定を同期した時刻の UNIX タイムスタンプ (秒単位) (Default: 0)
+    // この値は main.ts 内にある SettingsStore.syncClientSettingsToServer() 以外から更新してはならない
+    last_synced_at: 0,
+
     // 前回視聴画面を開いた際にパネルが表示されていたかどうか (同期無効)
     showed_panel_last_time: true,
     // 現在ツイート対象として選択されている Twitter アカウントの ID (同期無効)
     selected_twitter_account_id: null,
     // 保存している Twitter のハッシュタグが入るリスト
     saved_twitter_hashtags: [],
+
+    // ***** L字画面のクロップ設定 *****
+
+    // L字画面のクロップを有効にする (Default: 無効)
+    lshaped_screen_crop_enabled: false,
+    // L字画面のクロップの拡大率 (Default: 100%)
+    lshaped_screen_crop_zoom_level: 100,
+    // L字画面のクロップのX座標 (Default: 0%)
+    lshaped_screen_crop_x_position: 0,
+    // L字画面のクロップのY座標 (Default: 0%)
+    lshaped_screen_crop_y_position: 0,
+    // L字画面のクロップの拡大起点 (Default: 右下)
+    lshaped_screen_crop_zoom_origin: 'BottomRight',
 
     // ***** 設定 → 全般 *****
 
@@ -146,6 +172,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     capture_save_mode: 'UploadServer',
     // 字幕が表示されているときのキャプチャの保存モード (Default: 映像のみのキャプチャと、字幕を合成したキャプチャを両方保存する)
     capture_caption_mode: 'Both',
+    // キャプチャの保存ファイル名 (Default: Capture_%date%-%time%)
+    capture_filename_pattern: 'Capture_%date%-%time%',
     // キャプチャをクリップボードにコピーする (Default: 無効) (同期無効)
     capture_copy_to_clipboard: false,
 
@@ -156,6 +184,8 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
     // ***** 設定 → ニコニコ実況 *****
 
+    // 可能であればニコニコ実況にコメントする (Default: オン)
+    prefer_posting_to_nicolive: true,
     // コメントの速さ (Default: 1倍)
     comment_speed_rate: 1,
     // コメントのフォントサイズ (Default: 34px)
@@ -200,9 +230,15 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
 // 同期対象の設定データのキーのみを列挙した配列
 const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
+    'last_synced_at',
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     'saved_twitter_hashtags',
+    // lshaped_screen_crop_enabled: 同期無効
+    // lshaped_screen_crop_zoom_level: 同期無効
+    // lshaped_screen_crop_x_position: 同期無効
+    // lshaped_screen_crop_y_position: 同期無効
+    // lshaped_screen_crop_zoom_origin: 同期無効
     'pinned_channel_ids',
     'panel_display_state',
     'tv_panel_active_tab',
@@ -228,8 +264,10 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // enable_internet_access_from_data_broadcasting: 同期無効
     'capture_save_mode',
     'capture_caption_mode',
+    'capture_filename_pattern',
     // capture_copy_to_clipboard: 同期無効
     // sync_settings: 同期無効
+    'prefer_posting_to_nicolive',
     'comment_speed_rate',
     'comment_font_size',
     'close_comment_form_after_sending',
@@ -322,6 +360,33 @@ export function getSyncableClientSettings(settings: {[key: string]: any}): IClie
     return syncable_settings as IClientSettings;
 }
 
+/**
+ * 設定データをハッシュ化する (このとき、last_synced_at は無視される)
+ * @param settings 設定データ
+ * @returns 設定データのハッシュ値
+ */
+export function hashClientSettings(settings: IClientSettings): string {
+    return hash(settings, {
+        excludeKeys: (key) => key === 'last_synced_at',
+    });
+}
+
+/**
+ * 最終同期時刻を更新中かどうかを表すフラグ
+ * main.ts 側で最終同期時刻の更新が検知され syncClientSettingsToServer() が呼び出されると無限ループが発生するため、
+ * 最終同期時刻の更新中はサーバーへのデータ同期を行わないようにする
+ * このフラグを Store に含めると Store の更新イベントが発生して意味がないので、やむを得ず Store の外に定義している
+ */
+export let is_last_synced_at_updating: boolean = false;
+
+/**
+ * 現在サーバーに保存されている設定データをこのクライアントに同期中かどうか
+ * サーバーからクライアントへの pull 後、クライアントからサーバーへ即座に push されるのは無駄なため、
+ * それを抑制するために必要なフラグ
+ * このフラグを Store に含めると Store の更新イベントが発生して意味がないので、やむを得ず Store の外に定義している
+ */
+export let is_syncing_client_settings_from_server: boolean = false;
+
 
 /**
  * 設定データを共有するストア
@@ -409,20 +474,36 @@ const useSettingsStore = defineStore('settings', {
                 return;
             }
 
+            // ここから先、設定データの pull 中に syncClientSettingsToServer() が実行されないようロックする
+            is_syncing_client_settings_from_server = true;
+
             // サーバーから設定データをダウンロード
             const settings_server = await Settings.fetchClientSettings();
             if (settings_server === null) {
                 return;  // 取得できなくても後続の処理には影響しないので、サイレントに失敗する
             }
 
+            // サーバーから取得した設定データに含まれる最終同期時刻が、このクライアントが保持している最終同期時刻よりも古い場合、
+            // このまま同期を続行するとサーバーに保存されている古い設定データに巻き戻されてしまうため、同期を中断する
+            if (settings_server.last_synced_at < this.settings.last_synced_at) {
+                console.warn('Server has older settings than this client. Skipping sync.');
+                return;
+            } else if (settings_server.last_synced_at > this.settings.last_synced_at) {
+                console.log('Last Synced At Changed (From Server):', settings_server.last_synced_at);
+            }
+
             // クライアントの設定データをサーバーからの設定データで上書き
             // 両者の値に変更がある場合のみ上書きする
             // さもなければ、実際にはサーバー側で値が変更されていない場合でも定義されているストアに紐づく全てのコンポーネントの再描画が発生してしまう (?)
             for (const [settings_server_key, settings_server_value] of Object.entries(settings_server)) {
-                if (JSON.stringify(this.settings[settings_server_key]) !== JSON.stringify(settings_server_value)) {
+                if (isEqual(this.settings[settings_server_key], settings_server_value) === false) {
                     this.settings[settings_server_key] = settings_server_value;
                 }
             }
+
+            // 設定データの pull が完了したので、ロックを解除する
+            await Utils.sleep(0.01);  // ここで若干待つことで、フラグが正しく機能するようにする
+            is_syncing_client_settings_from_server = false;
         },
 
         /**
@@ -436,11 +517,35 @@ const useSettingsStore = defineStore('settings', {
                 return;
             }
 
+            // 最終同期時刻の更新中・syncClientSettingsFromServer() の実行中はサーバーへのデータ同期を行わない
+            if (is_last_synced_at_updating === true || is_syncing_client_settings_from_server === true) {
+                return;
+            }
+
             // 同期対象の設定キーのみで設定データをまとめ直す
             const sync_settings = getSyncableClientSettings(this.settings);
 
+            // 新しい最終同期時刻
+            const new_last_synced_at = Utils.time();
+
+            // 同期対象の設定キーのみでまとめ直した設定データ内の最終同期時刻を、新しい最終同期時刻に更新
+            // この時 this.settings.last_synced_at は更新しないのがポイント (実際に同期が成功したときのみ更新する必要がある)
+            sync_settings.last_synced_at = new_last_synced_at;
+
             // サーバーに設定データをアップロード
-            await Settings.updateClientSettings(sync_settings);
+            // このとき同一の最終同期時刻をサーバー側にも保管することで、サーバーから新しい設定データを同期する際に
+            // 古い設定データへの巻き戻しが発生するのを防ぐ
+            const success = await Settings.updateClientSettings(sync_settings);
+
+            // 設定データの同期に成功した場合のみ、最終同期時刻を実際のクライアント設定 (this.settings) に反映
+            // 当然ここで反映した最終同期時刻は LocalStorage にも記録される
+            if (success === true) {
+                is_last_synced_at_updating = true;
+                this.settings.last_synced_at = new_last_synced_at;
+                await Utils.sleep(0.01);  // ここで若干待つことで、フラグが正しく機能するようにする
+                is_last_synced_at_updating = false;
+                console.log('Last Synced At Changed (To Server):', this.settings.last_synced_at);
+            }
         }
     }
 });
