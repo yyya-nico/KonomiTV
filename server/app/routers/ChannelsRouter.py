@@ -28,8 +28,8 @@ from app.models.Channel import Channel
 from app.routers.UsersRouter import GetCurrentUser
 from app.streams.LiveStream import LiveStream
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import EDCBUtil
+from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
+from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.Jikkyo import Jikkyo
 
 
@@ -433,8 +433,8 @@ async def ChannelLogoAPI(
             # NID と SID を 5 桁でゼロ埋めした上で int に変換する
             mirakurun_service_id = int(str(channel.network_id).zfill(5) + str(channel.service_id).zfill(5))
 
-            # Mirakurun の API からロゴを取得する
-            # 同梱のロゴが存在しない場合のみ
+            # 同梱のロゴが存在しない場合のみ、Mirakurun の API からロゴを取得する
+            ## mirakc においては、ユーザーが mirakc にロゴを手動設定している場合のみ局ロゴを取得できる
             try:
                 mirakurun_logo_api_url = GetMirakurunAPIEndpointURL(f'/api/services/{mirakurun_service_id}/logo')
                 async with HTTPX_CLIENT() as client:
@@ -522,16 +522,16 @@ async def ChannelLogoAPI(
 
 @router.get(
     '/{channel_id}/jikkyo',
-    summary = 'ニコニコ実況セッション情報 API',
-    response_description = 'ニコニコ実況のセッション情報。',
-    response_model = schemas.JikkyoSession,
+    summary = 'ニコニコ実況 WebSocket URL API',
+    response_description = 'ニコニコ実況コメント送受信用 WebSocket API の情報。',
+    response_model = schemas.JikkyoWebSocketInfo,
 )
-async def ChannelJikkyoSessionAPI(
+async def ChannelJikkyoWebSocketInfoAPI(
     request: Request,
     channel: Annotated[Channel, Depends(GetChannel)],
 ):
     """
-    指定されたチャンネルに紐づくニコニコ実況のセッション情報を取得する。
+    指定されたチャンネルに対応する、ニコニコ実況コメント送受信用 WebSocket API の情報を取得する。
     """
 
     # もし Authorization ヘッダーがあるなら、ログイン中のユーザーアカウントを取得する
@@ -548,9 +548,6 @@ async def ChannelJikkyoSessionAPI(
         except HTTPException:
             pass
 
-    # ニコニコ実況クライアントを初期化する
+    # ニコニココメント送受信用 WebSocket API の情報を取得する
     jikkyo = Jikkyo(channel.network_id, channel.service_id)
-
-    # ニコニコ実況（ニコ生）のセッション情報を取得する
-    # 取得してきた値をそのまま返す
-    return await jikkyo.fetchJikkyoSession(current_user)
+    return await jikkyo.fetchWebSocketInfo(current_user)

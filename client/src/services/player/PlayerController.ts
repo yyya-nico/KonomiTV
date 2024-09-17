@@ -4,6 +4,7 @@ import assert from 'assert';
 import DPlayer, { DPlayerType } from 'dplayer';
 import Hls from 'hls.js';
 import mpegts from 'mpegts.js';
+import { watch } from 'vue';
 
 import KeyboardShortcutManager from './managers/KeyboardShortcutManager';
 
@@ -34,8 +35,8 @@ import Utils, { dayjs, PlayerUtils } from '@/utils';
 class PlayerController {
 
     // ライブ視聴: 低遅延モードオンでの再生バッファ (秒単位)
-    // 0.8 秒程度余裕を持たせる
-    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.8;
+    // 0.9 秒程度余裕を持たせる
+    private static readonly LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY = 0.9;
 
     // ライブ視聴: 低遅延モードオフでの再生バッファ (秒単位)
     // 4 秒程度の遅延を許容する
@@ -50,18 +51,9 @@ class PlayerController {
     // 再生モード (Live: ライブ視聴, Video: ビデオ視聴)
     private readonly playback_mode: 'Live' | 'Video';
 
-    // ライブ視聴: 画質プロファイル
-    private readonly tv_streaming_quality: LiveStreamingQuality;
-    private readonly tv_data_saver_mode: boolean;
-    private readonly tv_low_latency_mode: boolean;
-
-    // ビデオ視聴: 画質プロファイル
-    private readonly video_streaming_quality: VideoStreamingQuality;
-    private readonly video_data_saver_mode: boolean;
-
-    // ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
-    // 設計上コンストラクタ以降で変更すべきでないため readonly にしている
-    private readonly live_playback_buffer_seconds: number;
+    // 画質プロファイル (Wi-Fi 回線時 / モバイル回線時)
+    // デフォルトは自動判定だが、ユーザーによって手動変更されうる
+    private quality_profile_type: 'Wi-Fi' | 'Cellular';
 
     // ライブ視聴: mpegts.js のバッファ詰まり対策で定期的に強制シークするインターバルをキャンセルする関数
     private live_force_seek_interval_timer_cancel: (() => void) | null = null;
@@ -103,31 +95,14 @@ class PlayerController {
         // 再生モードをセット
         this.playback_mode = playback_mode;
 
-        // ネットワーク回線が Cellular (モバイル回線) であれば、モバイル回線用の画質プロファイルを適用する
-        // Wi-Fi or 取得できなかった場合は、通常の画質プロファイルを適用する
-        const settings_store = useSettingsStore();
+        // デフォルトでは、現在のネットワーク回線が Cellular (モバイル回線) のとき、モバイル回線向けの画質プロファイルを適用する
+        // Wi-Fi 回線またはネットワーク回線種別を取得できなかった場合は、Wi-Fi 回線向けの画質プロファイルを適用する
+        // この画質プロファイルはユーザーによって手動で変更されうる
         const network_circuit_type = PlayerUtils.getNetworkCircuitType();
-        // ライブ視聴の画質プロファイル
-        this.tv_streaming_quality = network_circuit_type === 'Cellular' ?
-            settings_store.settings.tv_streaming_quality_cellular : settings_store.settings.tv_streaming_quality;
-        this.tv_data_saver_mode = network_circuit_type === 'Cellular' ?
-            settings_store.settings.tv_data_saver_mode_cellular : settings_store.settings.tv_data_saver_mode;
-        this.tv_low_latency_mode = network_circuit_type === 'Cellular' ?
-            settings_store.settings.tv_low_latency_mode_cellular : settings_store.settings.tv_low_latency_mode;
-        // ビデオ視聴の画質プロファイル
-        this.video_streaming_quality = network_circuit_type === 'Cellular' ?
-            settings_store.settings.video_streaming_quality_cellular : settings_store.settings.video_streaming_quality;
-        this.video_data_saver_mode = network_circuit_type === 'Cellular' ?
-            settings_store.settings.video_data_saver_mode_cellular : settings_store.settings.video_data_saver_mode;
-
-        // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファをセット (秒単位)
-        this.live_playback_buffer_seconds = this.tv_low_latency_mode ?
-            PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS;
-
-        // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
-        // さらに 0.3 秒程度余裕を持たせる
-        if (Utils.isSafari() === true) {
-            this.live_playback_buffer_seconds += 0.3;
+        if (network_circuit_type === 'Cellular') {
+            this.quality_profile_type = 'Cellular';
+        } else {
+            this.quality_profile_type = 'Wi-Fi';
         }
 
         // 01 ~ 14 まですべての RomSound を読み込む
@@ -145,6 +120,55 @@ class PlayerController {
                 }
             }
         })();
+    }
+
+
+    /**
+     * 現在の画質プロファイルタイプに応じた画質プロファイル
+     */
+    private get quality_profile(): {
+        tv_streaming_quality: LiveStreamingQuality;
+        tv_data_saver_mode: boolean;
+        tv_low_latency_mode: boolean;
+        video_streaming_quality: VideoStreamingQuality;
+        video_data_saver_mode: boolean;
+    } {
+        const settings_store = useSettingsStore();
+        // モバイル回線向けの画質プロファイルを返す
+        if (this.quality_profile_type === 'Cellular') {
+            return {
+                tv_streaming_quality: settings_store.settings.tv_streaming_quality_cellular,
+                tv_data_saver_mode: settings_store.settings.tv_data_saver_mode_cellular,
+                tv_low_latency_mode: settings_store.settings.tv_low_latency_mode_cellular,
+                video_streaming_quality: settings_store.settings.video_streaming_quality_cellular,
+                video_data_saver_mode: settings_store.settings.video_data_saver_mode_cellular,
+            };
+        // Wi-Fi 回線向けの画質プロファイルを返す
+        } else {
+            return {
+                tv_streaming_quality: settings_store.settings.tv_streaming_quality,
+                tv_data_saver_mode: settings_store.settings.tv_data_saver_mode,
+                tv_low_latency_mode: settings_store.settings.tv_low_latency_mode,
+                video_streaming_quality: settings_store.settings.video_streaming_quality,
+                video_data_saver_mode: settings_store.settings.video_data_saver_mode,
+            };
+        }
+    }
+
+
+    /**
+     * ライブ視聴: 許容する HTMLMediaElement の内部再生バッファの秒数
+     */
+    private get live_playback_buffer_seconds(): number {
+        // 低遅延モードであれば低遅延向けの再生バッファを、そうでなければ通常の再生バッファ (秒単位)
+        let live_playback_buffer_seconds = this.quality_profile.tv_low_latency_mode ?
+            PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS_LOW_LATENCY : PlayerController.LIVE_PLAYBACK_BUFFER_SECONDS;
+        // Safari の Media Source Extensions API の実装はどうもバッファの揺らぎが大きい (?) ようなので、バッファ詰まり対策で
+        // さらに 0.3 秒程度余裕を持たせる
+        if (Utils.isSafari() === true) {
+            live_playback_buffer_seconds += 0.3;
+        }
+        return live_playback_buffer_seconds;
     }
 
 
@@ -219,8 +243,8 @@ class PlayerController {
                 // API に渡す画質に -hevc のプレフィックスをつける
                 let hevc_prefix = '';
                 if (PlayerUtils.isHEVCVideoSupported() &&
-                    ((this.playback_mode === 'Live' && this.tv_data_saver_mode === true) ||
-                     (this.playback_mode === 'Video' && this.video_data_saver_mode === true))) {
+                    ((this.playback_mode === 'Live' && this.quality_profile.tv_data_saver_mode === true) ||
+                     (this.playback_mode === 'Video' && this.quality_profile.video_data_saver_mode === true))) {
                     hevc_prefix = '-hevc';
                 }
 
@@ -256,7 +280,7 @@ class PlayerController {
 
                     // デフォルトの画質
                     // ラジオチャンネルのみ常に 48KHz/192kbps に固定する
-                    let default_quality: string = this.tv_streaming_quality;
+                    let default_quality: string = this.quality_profile.tv_streaming_quality;
                     if (channels_store.channel.current.is_radiochannel) {
                         default_quality = '48kHz/192kbps';
                     }
@@ -284,7 +308,7 @@ class PlayerController {
 
                     // デフォルトの画質
                     // 録画ではラジオは考慮しない
-                    const default_quality: string = this.video_streaming_quality;
+                    const default_quality: string = this.quality_profile.video_streaming_quality;
 
                     return {
                         quality: qualities,
@@ -389,7 +413,7 @@ class PlayerController {
                         // HTMLMediaElement の内部バッファによるライブストリームの遅延を追跡する
                         // liveBufferLatencyChasing と異なり、いきなり再生時間をスキップするのではなく、
                         // 再生速度を少しだけ上げることで再生を途切れさせることなく遅延を追跡する
-                        liveSync: this.tv_low_latency_mode,
+                        liveSync: this.quality_profile.tv_low_latency_mode,
                         // 許容する HTMLMediaElement の内部バッファの最大値 (秒単位, 3秒)
                         liveSyncMaxLatency: 3,
                         // HTMLMediaElement の内部バッファ (遅延) が liveSyncMaxLatency を超えたとき、ターゲットとする遅延時間 (秒単位)
@@ -560,6 +584,9 @@ class PlayerController {
         // DPlayer の設定パネルを無理やり拡張し、KonomiTV 独自の項目を追加する
         this.setupSettingPanelHandler();
 
+        // LShaped Screen Crop の設定が変更されたときのイベントハンドラーを登録する
+        this.setupLShapedScreenCropHandler();
+
         // KonomiTV 本体の UI を含むプレイヤー全体のコンテナ要素がリサイズされたときのイベントハンドラーを登録する
         this.setupPlayerContainerResizeHandler();
 
@@ -609,17 +636,20 @@ class PlayerController {
             // PlayerController 自身を再初期化
             // この時点で PlayerRestartRequired のイベントハンドラーは再登録されているはず
             await this.init();
+            is_player_restarting = false;
 
             // プレイヤー側にイベントの発火元から送られたメッセージ (プレイヤーを再起動中である旨) を通知する
             // 再初期化により、作り直した DPlayer が再び this.player にセットされているはず
             // 通知を表示してから PlayerController を破棄すると DPlayer の DOM 要素ごと消えてしまうので、DPlayer を作り直した後に通知を表示する
             assert(this.player !== null);
             if (event.message) {
+                // 遅延時間が指定されていれば待つ
+                await Utils.sleep(event.message_delay_seconds ?? 0);
                 // 明示的にエラーメッセージではないことが指定されていればデフォルトの色で通知を表示する
+                // デフォルトではメッセージは赤色で表示される
                 const color = event.is_error_message === false ? undefined : '#FF6F6A';
                 this.player.notice(event.message, undefined, undefined, color);
             }
-            is_player_restarting = false;
         });
 
         // PlayerController.setControlDisplayTimer() の呼び出しを要求されたときのイベントハンドラーを登録する
@@ -930,8 +960,9 @@ class PlayerController {
                     // 再生バッファが live_playback_buffer_seconds を切ると再生が途切れやすくなるので (特に動きの激しい映像)、
                     // 再生開始までの時間を若干犠牲にして、再生バッファの調整と同期に時間を割く
                     // live_playback_buffer_seconds の値は mpegts.js の liveSyncTargetLatency 設定に渡す値と共通
+                    const live_playback_buffer_seconds = this.live_playback_buffer_seconds;  // 毎回取得すると負荷が掛かるのでキャッシュする
                     let current_playback_buffer_sec = this.getPlaybackBufferSeconds();
-                    while (current_playback_buffer_sec < this.live_playback_buffer_seconds) {
+                    while (current_playback_buffer_sec < live_playback_buffer_seconds) {
                         await Utils.sleep(0.1);
                         current_playback_buffer_sec = this.getPlaybackBufferSeconds();
                     }
@@ -1137,18 +1168,81 @@ class PlayerController {
         assert(this.player !== null);
         const player_store = usePlayerStore();
 
-        // 設定パネルにショートカット一覧を表示するボタンを動的に追加する
-        // スマホなどのタッチデバイスでは基本キーボードが使えないため、タッチデバイスの場合はボタンを表示しない
-        if (Utils.isTouchDevice() === false) {
-            this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
-            <div class="dplayer-setting-item dplayer-setting-keyboard-shortcut">
-                <span class="dplayer-label">キーボードショートカット</span>
+        // モバイル回線プロファイルに切り替えるボタンを動的に追加する
+        this.player.template.audio.insertAdjacentHTML('afterend', `
+            <div class="dplayer-setting-item dplayer-setting-mobile-profile">
+                <span class="dplayer-label">モバイル回線向け画質</span>
+                <div class="dplayer-toggle">
+                    <input class="dplayer-mobile-profile-setting-input" type="checkbox" name="dplayer-toggle-mobile-profile">
+                    <label for="dplayer-toggle-mobile-profile" style="--theme-color:#E64F97"></label>
+                </div>
+            </div>
+        `);
+
+        // デフォルトのチェック状態を画質プロファイルタイプに合わせる
+        const toggle_mobile_profile_input = this.player.container.querySelector<HTMLInputElement>('.dplayer-mobile-profile-setting-input')!;
+        toggle_mobile_profile_input.checked = this.quality_profile_type === 'Cellular';
+
+        // モバイル回線プロファイルに切り替えるボタンがクリックされた時のイベントハンドラーを登録
+        const toggle_mobile_profile_button = this.player.container.querySelector('.dplayer-setting-mobile-profile')!;
+        toggle_mobile_profile_button.addEventListener('click', () => {
+            // チェックボックスの状態を切り替える
+            toggle_mobile_profile_input.checked = !toggle_mobile_profile_input.checked;
+            // 画質プロファイルをモバイル回線向けに切り替えてから、プレイヤーを再起動
+            if (toggle_mobile_profile_input.checked) {
+                this.quality_profile_type = 'Cellular';
+                player_store.event_emitter.emit('PlayerRestartRequired', {
+                    message: 'モバイル回線向けの画質プロファイルに切り替えました。',
+                    // 他の通知と被らないように、メッセージを遅らせて表示する
+                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
+                    is_error_message: false,
+                });
+            // 画質プロファイルを Wi-Fi 回線向けに切り替えてから、プレイヤーを再起動
+            } else {
+                this.quality_profile_type = 'Wi-Fi';
+                player_store.event_emitter.emit('PlayerRestartRequired', {
+                    message: 'Wi-Fi 回線向けの画質プロファイルに切り替えました。',
+                    // 他の通知と被らないように、メッセージを遅らせて表示する
+                    message_delay_seconds: this.quality_profile.tv_low_latency_mode || this.playback_mode === 'Video' ? 2 : 4.5,
+                    is_error_message: false,
+                });
+            }
+        });
+
+        // 設定パネルにL字画面のクロップ設定を表示するボタンを動的に追加する
+        this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
+            <div class="dplayer-setting-item dplayer-setting-lshaped-screen-crop">
+                <span class="dplayer-label">Ｌ字画面のクロップ</span>
                 <div class="dplayer-toggle">
                     <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
                         <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
                     </svg>
                 </div>
-            </div>`);
+            </div>
+        `);
+
+        // L字画面のクロップ設定モーダルを表示するボタンがクリックされたときのイベントハンドラーを登録
+        this.player.template.settingOriginPanel.querySelector('.dplayer-setting-lshaped-screen-crop')!.addEventListener('click', () => {
+            assert(this.player !== null);
+            // 設定パネルを閉じる
+            this.player.setting.hide();
+            // L字画面のクロップ設定モーダルを表示する
+            player_store.lshaped_screen_crop_settings_modal = true;
+        });
+
+        // 設定パネルにショートカット一覧を表示するボタンを動的に追加する
+        // スマホなどのタッチデバイスでは基本キーボードが使えないため、タッチデバイスの場合はボタンを表示しない
+        if (Utils.isTouchDevice() === false) {
+            this.player.template.settingOriginPanel.insertAdjacentHTML('beforeend', `
+                <div class="dplayer-setting-item dplayer-setting-keyboard-shortcut">
+                    <span class="dplayer-label">キーボードショートカット</span>
+                    <div class="dplayer-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 32 32">
+                            <path d="M22 16l-10.105-10.6-1.895 1.987 8.211 8.613-8.211 8.612 1.895 1.988 8.211-8.613z"></path>
+                        </svg>
+                    </div>
+                </div>
+            `);
 
             // ショートカット一覧モーダルを表示するボタンがクリックされたときのイベントハンドラーを登録
             this.player.template.settingOriginPanel.querySelector('.dplayer-setting-keyboard-shortcut')!.addEventListener('click', () => {
@@ -1159,6 +1253,110 @@ class PlayerController {
                 player_store.shortcut_key_modal = true;
             });
         }
+    }
+
+
+    /*
+     * L字画面のクロップ設定に応じて映像のクロップを変更する
+     */
+    private setupLShapedScreenCropHandler(): void {
+        assert(this.player !== null);
+        const settings_store = useSettingsStore();
+
+        // リサイズ対象の映像要素
+        let video_element = this.player.video;
+        // 画質切り替え後に新しい映像要素が生成されるため、画質切り替え後にリサイズ対象を更新する
+        this.player.on('quality_end', () => {
+            video_element = this.player!.video;
+            crop();
+        });
+
+        // 現在の設定状態を DOM に反映する関数
+        // 基本 TVRemotePlus のときの実装をそのまま移植した
+        // ref: https://github.com/tsukumijima/TVRemotePlus/blob/master/htdocs/files/index.js#L410-L536
+        const crop = () => {
+
+            // L字画面のクロップが無効なときはスタイルを削除
+            if (settings_store.settings.lshaped_screen_crop_enabled === false) {
+                video_element.style.position = '';
+                video_element.style.transform = '';
+                video_element.style.transformOrigin = '';
+                return;
+            }
+
+            // 現在の設定値を取得
+            const lshaped_screen_crop_zoom_level = settings_store.settings.lshaped_screen_crop_zoom_level;
+            const lshaped_screen_crop_x_position = settings_store.settings.lshaped_screen_crop_x_position;
+            const lshaped_screen_crop_y_position = settings_store.settings.lshaped_screen_crop_y_position;
+            const lshaped_screen_crop_zoom_origin = settings_store.settings.lshaped_screen_crop_zoom_origin;
+
+            // 全てデフォルト（オフ）状態ならスタイルを削除
+            // 空文字を入れると style 属性から当該スタイルが除去される
+            if (lshaped_screen_crop_zoom_level === 100 && lshaped_screen_crop_x_position === 0 && lshaped_screen_crop_y_position === 0) {
+                video_element.style.position = '';
+                video_element.style.transform = '';
+                video_element.style.transformOrigin = '';
+            } else {
+                // transform をクリア
+                video_element.style.position = 'relative';
+                video_element.style.transform = '';
+
+                // 拡大起点別に
+                switch (lshaped_screen_crop_zoom_origin) {
+                    // 右上
+                    case 'TopRight': {
+                        // 拡大起点を右上に設定
+                        video_element.style.transformOrigin = 'right top';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                    // 右下
+                    case 'BottomRight': {
+                        // 拡大起点を右下に設定
+                        video_element.style.transformOrigin = 'right bottom';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                    // 左上
+                    case 'TopLeft': {
+                        // 拡大起点を左上に設定
+                        video_element.style.transformOrigin = 'left top';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                    // 左下
+                    case 'BottomLeft': {
+                        // 拡大起点を左下に設定
+                        video_element.style.transformOrigin = 'left bottom';
+                        // 動画の表示サイズを 100% として、拡大率を超えない範囲で座標をずらす
+                        video_element.style.transform += `translateX(-${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_x_position / 100)}%) `;
+                        video_element.style.transform += `translateY(${(lshaped_screen_crop_zoom_level - 100) * (lshaped_screen_crop_y_position / 100)}%) `;
+                        break;
+                    }
+                }
+
+                // video 要素を拡大
+                // transform は後ろから適用されるため、先にリサイズしておかないと正しく座標をずらせない
+                // ref: https://techblog.kayac.com/css-transform-tips
+                video_element.style.transform += `scale(${lshaped_screen_crop_zoom_level / 100})`;
+            }
+        };
+
+        // 初回実行
+        crop();
+
+        // 設定値が変更されたときに実行
+        watch(() => settings_store.settings.lshaped_screen_crop_enabled, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_zoom_level, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_x_position, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_y_position, crop, { immediate: true });
+        watch(() => settings_store.settings.lshaped_screen_crop_zoom_origin, crop, { immediate: true });
     }
 
 

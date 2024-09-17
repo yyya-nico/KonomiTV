@@ -10,6 +10,7 @@ from datetime import datetime
 from tortoise import fields
 from tortoise import Tortoise
 from tortoise import transactions
+from tortoise.exceptions import OperationalError
 from tortoise.fields import Field as TortoiseField
 from tortoise.models import Model as TortoiseModel
 from tortoise.exceptions import ConfigurationError
@@ -22,8 +23,8 @@ from app import logging
 from app.config import Config
 from app.constants import DATABASE_CONFIG, HTTPX_CLIENT
 from app.utils import GetMirakurunAPIEndpointURL
-from app.utils.EDCB import CtrlCmdUtil
-from app.utils.EDCB import EDCBUtil
+from app.utils.edcb.CtrlCmdUtil import CtrlCmdUtil
+from app.utils.edcb.EDCBUtil import EDCBUtil
 from app.utils.Jikkyo import Jikkyo
 from app.utils.TSInformation import TSInformation
 
@@ -169,7 +170,7 @@ class Channel(TortoiseModel):
                     channel = duplicate_channel
 
                 # 取得してきた値を設定
-                channel.id = f'NID{service["networkId"]}-SID{service["serviceId"]:03d}'
+                channel.id = channel_id
                 channel.service_id = int(service['serviceId'])
                 channel.network_id = int(service['networkId'])
                 channel.remocon_id = int(service['remoteControlKeyId']) if ('remoteControlKeyId' in service) else 0
@@ -178,19 +179,29 @@ class Channel(TortoiseModel):
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
-                # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
+                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                if channel.type == 'BS' and channel.service_id in [238, 241, 258]:
+                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
+                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
                 # だいたい謎の試験チャンネルとかで見るに耐えない
                 if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
                 if channel.name.startswith('試験チャンネル'):
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
@@ -225,7 +236,12 @@ class Channel(TortoiseModel):
 
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
-                await duplicate_channel.delete()
+                try:
+                    await duplicate_channel.delete()
+                # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
+                except OperationalError as e:
+                    if 'Can\'t delete unpersisted record' not in str(e):
+                        raise e
 
 
     @classmethod
@@ -283,13 +299,14 @@ class Channel(TortoiseModel):
                     continue
 
                 # EPG 取得対象でないチャンネルを弾く
-                ## EDCB のデフォルトの EPG 取得対象チャンネルはデジタルTVサービス・デジタル音声サービスのみ
+                ## EDCB のデフォルトの EPG 取得対象チャンネルはデジタルTVサービスのみ
                 ## EDCB で EPG 取得対象でないチャンネルは番組情報が取得できないし、当然予約録画もできず登録しておく意味がない
                 ## (BS では極々稀に野球中継の延長時などに臨時サービスが運用されうるが、年に数度あるかないか程度なので当面考慮しない)
                 ## この処理により、EDCB 上で有効とされているチャンネル数と KonomiTV 上のチャンネル数が概ね一致するようになる
                 ## (上記処理で除外しているワンセグなどのチャンネルが EPG 取得対象になっている場合は一致しないが、基本ないと思うので考慮しない)
                 ## これにより、番組検索時のサービス絞り込みリストに EPG 取得対象でないチャンネルが紛れ込むのを回避できる
-                if service['epg_cap_flag'] == False:
+                ## デジタル音声サービス (service_type: 0x02 / 現在は Ch:531 放送大学ラジオのみ) のみ、デフォルトでは EPG 取得対象に含まれないため通す
+                if service['epg_cap_flag'] == False and service['service_type'] != 0x02:
                     continue
 
                 # チャンネル ID
@@ -322,19 +339,29 @@ class Channel(TortoiseModel):
                 channel.jikkyo_force = None
                 channel.is_watchable = True
 
-                # すでに放送が終了した「FOXスポーツ＆エンターテインメント」「BSスカパー」「Dlife」を除外
+                # すでに放送が終了した「NHK BSプレミアム」「FOXスポーツ&エンターテインメント」「BSスカパー」「Dlife」を除外
                 ## 放送終了後にチャンネルスキャンしていないなどの理由でバックエンド側にチャンネル情報が残っている場合がある
-                if channel.type == 'BS' and channel.service_id in [238, 241, 258]:
+                ## 特に「NHK BSプレミアム」(Ch: 103) は互換性の兼ね合いで停波後も SDT にサービス情報が残っているため、明示的に除外する必要がある
+                if channel.type == 'BS' and channel.service_id in [103, 238, 241, 258]:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # チャンネルタイプが STARDIGIO でサービス ID が 400 ～ 499 以外のチャンネルを除外
                 # だいたい謎の試験チャンネルとかで見るに耐えない
                 if channel.type == 'STARDIGIO' and not 400 <= channel.service_id <= 499:
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # 「試験チャンネル」という名前（前方一致）のチャンネルを除外
                 # CATV や SKY に存在するが、だいたいどれもやってないし表示されてるだけ邪魔
                 if channel.name.startswith('試験チャンネル'):
+                    # このチャンネル情報は上記処理で duplicate_channels から削除されているが、
+                    # 上記条件に一致するチャンネル情報は DB から削除したいので、再度 duplicate_channels に追加し、最後にまとめて削除する
+                    duplicate_channels[channel.id] = channel
                     continue
 
                 # type が 0x02 のサービスのみ、ラジオチャンネルとして設定する
@@ -394,7 +421,12 @@ class Channel(TortoiseModel):
 
             # 不要なチャンネル情報を削除する
             for duplicate_channel in duplicate_channels.values():
-                await duplicate_channel.delete()
+                try:
+                    await duplicate_channel.delete()
+                # tortoise.exceptions.OperationalError: Can't delete unpersisted record を無視
+                except OperationalError as e:
+                    if 'Can\'t delete unpersisted record' not in str(e):
+                        raise e
 
 
     def calculateRemoconID(self) -> int:
@@ -602,7 +634,7 @@ class Channel(TortoiseModel):
         """ チャンネル情報のうち、ニコニコ実況関連のステータスを更新する """
 
         # 全ての実況チャンネルのステータスを更新
-        await Jikkyo.updateStatus()
+        await Jikkyo.updateStatuses()
 
         # 全てのチャンネル情報を取得
         channels = await Channel.filter(is_watchable=True)
@@ -614,9 +646,8 @@ class Channel(TortoiseModel):
             jikkyo = Jikkyo(channel.network_id, channel.service_id)
             status = await jikkyo.getStatus()
 
-            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなく、force が -1 でなければ
+            # ステータスが None（実況チャンネル自体が存在しないか、コミュニティの場合で実況枠が存在しない）でなく、
+            # force が -1 (何らかのエラー) でなければステータスを更新
             if status != None and status['force'] != -1:
-
-                # ステータスを更新
                 channel.jikkyo_force = status['force']
                 await channel.save()

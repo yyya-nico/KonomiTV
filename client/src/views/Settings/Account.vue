@@ -206,7 +206,7 @@ import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
 import Settings from '@/services/Settings';
-import useSettingsStore, { getSyncableClientSettings } from '@/stores/SettingsStore';
+import useSettingsStore, { getSyncableClientSettings, hashClientSettings } from '@/stores/SettingsStore';
 import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 import SettingsBase from '@/views/Settings/Base.vue';
@@ -244,7 +244,7 @@ export default defineComponent({
 
             // アップロードするアイコン画像
             // 基本1ファイルしか入らない (Vuetify 側の都合で配列になっている)
-            settings_icon_file: [] as File[],
+            settings_icon_file: null as File | null,
 
             // アカウント削除確認ダイヤログ
             account_delete_confirm_dialog: false,
@@ -269,21 +269,22 @@ export default defineComponent({
                 // 同期対象の設定キーのみで設定データをまとめ直す
                 const sync_settings = getSyncableClientSettings(this.settingsStore.settings);
 
-                // 同期対象のこのクライアントの設定を再度 JSON にする (文字列比較のため)
-                const sync_settings_json = JSON.stringify(sync_settings);
+                // 同期対象のこのクライアントの設定をハッシュ化する
+                const sync_settings_hash = hashClientSettings(sync_settings);
 
                 // サーバーから設定データをダウンロード
-                // 一度オブジェクトに戻したものをを再度 JSON にする (文字列比較のため)
+                // 一度オブジェクトに戻したものをハッシュ化する
                 const server_sync_settings = await Settings.fetchClientSettings();
                 if (server_sync_settings === null) {
                     Message.error('サーバーから設定データを取得できませんでした。');
                     return;
                 }
-                const server_sync_settings_json = JSON.stringify(server_sync_settings);
+                const server_sync_settings_hash = hashClientSettings(server_sync_settings);
+                console.log('[Settings-Account] sync_settings_hash:', sync_settings_hash);
+                console.log('[Settings-Account] server_sync_settings_hash:', server_sync_settings_hash);
 
                 // このクライアントの設定とサーバーに保存されている設定が一致しない（=競合している）
-                // ここで比較している設定データは文字列比較できるよう JSON シリアライズ前に同じ条件でソートされている
-                if (sync_settings_json !== server_sync_settings_json) {
+                if (sync_settings_hash !== server_sync_settings_hash) {
 
                     // 一度同期のスイッチをオフにして、クライアントとサーバーどちらの設定を使うのかを選択させるダイヤログを表示
                     this.sync_settings_dialog = true;
@@ -367,13 +368,13 @@ export default defineComponent({
         async updateAccountIcon() {
 
             // アイコン画像が選択されていないなら更新しない
-            if (this.settings_icon_file.length === 0) {
+            if (this.settings_icon_file === null) {
                 Message.error('アップロードする画像を選択してください！');
                 return;
             }
 
             // アイコン画像の更新処理 (エラーハンドリングを含む) を実行
-            await this.userStore.updateUserIcon(this.settings_icon_file[0]);
+            await this.userStore.updateUserIcon(this.settings_icon_file);
         },
 
         async deleteAccount() {
