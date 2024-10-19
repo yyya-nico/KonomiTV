@@ -86,13 +86,13 @@ app.include_router(MaintenanceRouter.router)
 app.include_router(VersionRouter.router)
 
 # CORS の設定
-## デバッグモード時のみ全てのオリジンからのリクエストを許可 (クライアント側の開発サーバーからのアクセスに必要)
-CORS_ORIGINS = ['*'] if CONFIG.general.debug is True else []
+## 全てのオリジンからのリクエストを許可
+CORS_ORIGINS = ['*']
 app.add_middleware(
     CORSMiddleware,
     allow_origins = CORS_ORIGINS,
-    allow_methods = CORS_ORIGINS,
-    allow_headers = CORS_ORIGINS,
+    allow_methods = ['*'],
+    allow_headers = ['*'],
     allow_credentials = True,
 )
 
