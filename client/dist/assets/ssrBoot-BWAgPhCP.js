@@ -1,1 +1,0 @@
-import{c as e}from"./logo-BqNND4bk.js";import{bB as t,k as s,j as a,bp as n}from"./top-DdLAbho1.js";const c=e("v-spacer","div","VSpacer");function l(){const o=t(!1);return s(()=>{window.requestAnimationFrame(()=>{o.value=!0})}),{ssrBootStyles:a(()=>o.value?void 0:{transition:"none !important"}),isBooted:n(o)}}export{c as V,l as u};

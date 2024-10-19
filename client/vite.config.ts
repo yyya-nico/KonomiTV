@@ -127,7 +127,7 @@ export default defineConfig({
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
                 // index.htmlを返さないパス
-                navigateFallbackDenylist: [/^\.\/wholech/],
+                navigateFallbackDenylist: [/^\/konomitv\/wholech/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }
