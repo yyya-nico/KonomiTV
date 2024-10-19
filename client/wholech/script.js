@@ -1,4 +1,5 @@
 import './style.css';
+import Utils from '@/utils';
 import mpegts from 'mpegts.js';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -147,7 +148,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         fade();
     };
     const channelsUpdate = async () => {
-        channelsList = await fetch('/api/channels')
+        channelsList = await fetch(`${Utils.getApiBaseUrl()}/channels`)
             .then(response => {
                 if (response.status !== 200) {
                     console.log('error or no content', response.status);
@@ -214,7 +215,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             <div class="broadcast-wrap">
                 <div class="broadcast-channel-box">
                     <span class="broadcast-channel">${ch.remocon_id}</span>
-                    <img class="broadcast-logo" src="/api/channels/${ch.id}/logo" alt="${ch.name}">
+                    <img class="broadcast-logo" src="${Utils.getApiBaseUrl()}/channels/${ch.id}/logo" alt="${ch.name}">
                 </div>
                 <div class="broadcast-title">
                     <span class="broadcast-title-id">${ch.program_present?.title ?? '(情報なし)'}</span>
@@ -244,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         p = p.then(() => {
             return new Promise(resolve => {
                 if (mpegts.getFeatureList().mseLivePlayback) {
-                    const streamPath = `/api/streams/live/${ch.display_channel_id}/360p/mpegts`;
+                    const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${ch.display_channel_id}/360p/mpegts`;
                     const player = mpegts.createPlayer({
                         type: 'mse',  // could also be mpegts, m2ts, flv
                         isLive: true,
