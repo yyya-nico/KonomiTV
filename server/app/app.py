@@ -7,10 +7,9 @@ import tortoise.log
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi import status
+from fastapi import Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi_restful.tasks import repeat_every
 from pathlib import Path
 
@@ -111,9 +110,6 @@ for suffix, mime_type in [
     if guess != mime_type:
         mimetypes.add_type(mime_type, suffix)
 
-# 静的ファイルの配信
-app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
-
 # ルート以下のルーティング
 # ファイルが存在すればそのまま配信し、ファイルが存在しなければ index.html を返す
 @app.get('/{file:path}', include_in_schema=False)
@@ -125,32 +121,14 @@ async def Root(file: str):
         CLIENT_DIR.joinpath(Path(file)).resolve().relative_to(CLIENT_DIR.resolve())
     except ValueError:
         # URL に指定されたファイルパスが CLIENT_DIR の外側のフォルダを指している場合は、
-        # ファイルが存在するかに関わらず一律で index.html を返す
-        return FileResponse(CLIENT_DIR / 'index.html', media_type='text/html')
+        # ファイルが存在するかに関わらず一律で 404 Not Found を返す
+        return Response(status_code = status.HTTP_404_NOT_FOUND)
 
-    # ファイルが存在する場合のみそのまま配信
-    filepath = CLIENT_DIR / file
-    if filepath.is_file():
-        # 拡張子から MIME タイプを判定
-        if filepath.suffix in ['.css', '.html', '.ico', '.js', '.json', '.map']:
-            mime = mimetypes.guess_type(f'foo{filepath.suffix}')[0] or 'text/plain'
-        else:
-            mime = 'text/plain'
-        return FileResponse(filepath, media_type=mime)
-
-    # デフォルトドキュメント (index.html)
-    # URL の末尾にスラッシュがついている場合のみ
-    elif (filepath / 'index.html').is_file() and (file == '' or file[-1] == '/'):
-        return FileResponse(filepath / 'index.html', media_type='text/html')
-
-    # 存在しない静的ファイルが指定された場合
+    # 404 Not Found を返す
+    if file.startswith('api/'):
+        return JSONResponse({'detail': 'Not Found'}, status_code = status.HTTP_404_NOT_FOUND)
     else:
-        if file.startswith('api/'):
-            # パスに api/ が前方一致で含まれているなら、404 Not Found を返す
-            return JSONResponse({'detail': 'Not Found'}, status_code = status.HTTP_404_NOT_FOUND)
-        else:
-            # パスに api/ が前方一致で含まれていなければ、index.html を返す
-            return FileResponse(CLIENT_DIR / 'index.html', media_type='text/html')
+        return Response(status_code = status.HTTP_404_NOT_FOUND)
 
 # Internal Server Error のハンドリング
 @app.exception_handler(Exception)
