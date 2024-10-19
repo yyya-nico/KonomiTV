@@ -7,7 +7,7 @@
         <div class="watch-player__background-wrapper">
             <div class="watch-player__background" :class="{'watch-player__background--display': playerStore.is_background_display}"
                 :style="{backgroundImage: `url(${playerStore.background_url})`}">
-                <img class="watch-player__background-logo" src="/assets/images/logo.svg">
+                <img class="watch-player__background-logo" src="/konomitv/assets/images/logo.svg">
             </div>
         </div>
         <v-progress-circular indeterminate size="60" width="6" class="watch-player__buffering"

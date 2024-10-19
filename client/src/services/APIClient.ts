@@ -59,7 +59,7 @@ class APIClient {
 
         // API のベース URL を設定 (config.baseURL が指定されていない場合のみ)
         if (request.baseURL === undefined) {
-            request.baseURL = Utils.api_base_url;
+            request.baseURL = Utils.getApiBaseUrl();
         }
 
         // リクエストヘッダーが指定されていない場合は空のオブジェクトを設定

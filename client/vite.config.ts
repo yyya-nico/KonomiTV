@@ -12,6 +12,7 @@ import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 // Vite の設定
 // https://vitejs.dev/config/
 export default defineConfig({
+    base: '/konomitv/',
     // バージョン情報をビルド時に埋め込む
     // ref: https://stackoverflow.com/a/68093777/17124142
     define: {
@@ -98,23 +99,23 @@ export default defineConfig({
                 lang: 'ja',
                 icons: [
                     {
-                        src: '/assets/images/icons/icon-192px.png',
+                        src: './assets/images/icons/icon-192px.png',
                         sizes: '192x192',
                         type: 'image/png',
                     },
                     {
-                        src: '/assets/images/icons/icon-512px.png',
+                        src: './assets/images/icons/icon-512px.png',
                         sizes: '512x512',
                         type: 'image/png',
                     },
                     {
-                        src: '/assets/images/icons/icon-maskable-192px.png',
+                        src: './assets/images/icons/icon-maskable-192px.png',
                         sizes: '192x192',
                         type: 'image/png',
                         purpose: 'maskable',
                     },
                     {
-                        src: '/assets/images/icons/icon-maskable-512px.png',
+                        src: './assets/images/icons/icon-maskable-512px.png',
                         sizes: '512x512',
                         type: 'image/png',
                         purpose: 'maskable',
@@ -125,8 +126,8 @@ export default defineConfig({
             workbox: {
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
-                // /api/ 以下のリクエストでは index.html を返さない
-                navigateFallbackDenylist: [/^\/api/, /^\/wholech/],
+                // index.htmlを返さないパス
+                navigateFallbackDenylist: [/^\.\/wholech/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }

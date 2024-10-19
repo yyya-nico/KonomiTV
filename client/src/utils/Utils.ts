@@ -11,17 +11,58 @@ export default class Utils {
     // ビルド時の環境変数 (vue.config.js に記載) から取得
     static readonly version: string = import.meta.env.KONOMITV_VERSION;
 
-    // バックエンドの API のベース URL
-    // Worker からも参照できるように self.location を使う
-    static readonly api_base_url = (() => {
-        if (import.meta.env.DEV === true) {
-            // デバッグ時はポートを 7000 に強制する
-            return `${self.location.protocol}//${self.location.hostname}:7000/api`;
-        } else {
-            // ビルド後は同じポートを使う
-            return `${self.location.protocol}//${self.location.host}/api`;
-        }
-    })();
+
+    /**
+     * API ベースURLを取得する
+     * Worker からも参照できるように self.location を使う
+     * @returns APIベースURL
+     */
+    static getApiBaseUrl(): string {
+
+        return `${self.location.protocol}//${Utils.getApiHost()}/api`;
+    }
+
+
+    /**
+     * API ホストを LocalStorage から取得する
+     * @returns API ホスト（未設定の場合は7000ポートが返る）
+     */
+    static getApiHost(): string {
+
+        return localStorage.getItem('KonomiTV-ApiHost') ?? `${self.location.hostname}:7000`;
+    }
+
+
+    /**
+     * API ホストが記録されているかどうか
+     * @returns API ホストが記録されていたら true を返す
+     */
+    static hasApiHost(): boolean {
+
+        return localStorage.getItem('KonomiTV-ApiHost') !== null;
+    }
+
+
+    /**
+     * API ホストを LocalStorage に保存する
+     * @param host 指定された API ホスト
+     */
+    static saveApiHost(host: string): void {
+
+        // そのまま LocalStorage に保存
+        localStorage.setItem('KonomiTV-ApiHost', host);
+    }
+
+
+    /**
+     * API ホストを LocalStorage から削除する
+     * API ホストを削除することで、未設定になる
+     */
+    static deleteApiHost(): void {
+
+        // KonomiTV-ApiHost キーを削除
+        localStorage.removeItem('KonomiTV-ApiHost');
+    }
 
 
     /**

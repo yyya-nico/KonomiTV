@@ -1,33 +1,23 @@
 <template>
     <div class="route-container">
-        <HeaderBar />
         <main>
-            <Navigation />
-            <div class="login-container-wrapper d-flex align-center w-100 mb-13">
-                <v-card class="login-container px-10 pt-8 pb-11 mx-auto" elevation="10"
+            <div class="connect-container-wrapper d-flex align-center w-100 mb-13">
+                <v-card class="connect-container px-10 pt-8 pb-11 mx-auto" elevation="10"
                     width="100%" max-width="450">
-                    <v-card-title class="login__logo py-4 d-flex flex-column justify-center align-center">
+                    <v-card-title class="connect__logo py-4 d-flex flex-column justify-center align-center">
                         <img class="d-block" src="/konomitv/assets/images/logo.svg" style="max-width: 250px;" />
-                        <h4 class="mt-10">ログイン</h4>
+                        <h4 class="mt-10">接続</h4>
                     </v-card-title>
                     <v-divider></v-divider>
-                    <v-form ref="login" @submit.prevent>
+                    <v-form ref="connect" @submit.prevent="connect">
                         <v-text-field class="mt-12" color="primary" variant="outlined"
-                            placeholder="ユーザー名" hide-details autofocus
+                            placeholder="IPアドレス" autofocus
+                            hint="IPv4のIPアドレスを入力してください。"
                             :density="is_form_dense ? 'compact' : 'default'"
-                            v-model="username">
+                            v-model="ip_address">
                         </v-text-field>
-                        <v-text-field class="mt-8" color="primary" variant="outlined"
-                            placeholder="パスワード" hide-details
-                            :density="is_form_dense ? 'compact' : 'default'"
-                            v-model="password"
-                            :type="password_showing ? 'text' : 'password'"
-                            :append-inner-icon="password_showing ? 'mdi-eye' : 'mdi-eye-off'"
-                            @click:appendInner="password_showing = !password_showing">
-                        </v-text-field>
-                        <v-btn class="login-button mt-5" color="secondary" variant="flat" width="100%" height="56"
-                            @click="login()">
-                            <Icon icon="fa:sign-in" class="mr-2" />ログイン
+                        <v-btn type="submit" class="connect-button mt-5" color="secondary" variant="flat" width="100%" height="56">
+                            <Icon icon="fa:sign-in" class="mr-2" />接続
                         </v-btn>
                     </v-form>
                 </v-card>
@@ -40,60 +30,53 @@
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
-import HeaderBar from '@/components/HeaderBar.vue';
-import Navigation from '@/components/Navigation.vue';
 import Message from '@/message';
-import useUserStore from '@/stores/UserStore';
 import Utils from '@/utils';
 
 export default defineComponent({
-    name: 'Login',
-    components: {
-        HeaderBar,
-        Navigation,
-    },
+    name: 'Connect',
     data() {
         return {
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
-
-            username: '' as string,
-            password: '' as string,
-            password_showing: false,
+            ip_address: '' as string
         };
-    },
-    computed: {
-        ...mapStores(useUserStore),
     },
     async created() {
 
-        // アカウント情報を更新
-        await this.userStore.fetchUser();
+        // 接続後、設定画面からのアクセスでない限り表示させない
+        const referrer = this.$router.referrer;
+        if (referrer.path.includes('/settings/')) {
+            Utils.deleteApiHost();
+            return;
+        }
 
-        // 現在ログイン中の場合はアカウントページに遷移
-        if (this.userStore.is_logged_in) {
-            await this.$router.replace({path: '/settings/account'});
+        if (Utils.hasApiHost()) {
+            await this.$router.replace({path: '/tv/'});
+            return;
         }
     },
     methods: {
-        async login() {
+        async connect() {
 
-            // ユーザー名またはパスワードが空
-            if (this.username === '' || this.password === '') {
-                Message.error('ユーザー名またはパスワードが空です。');
+            // IPアドレスが空
+            if (this.ip_address === '') {
+                Message.error('IPアドレスが空です。');
                 return;
+            } else if (!/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$/.test(this.ip_address)) {
+                Message.error('IPv4のIPアドレスを入力してください。');
+                return;                
             }
 
-            // ログイン処理 (エラーハンドリング含む) を実行
-            const result = await this.userStore.login(this.username, this.password);
-            if (result === false) {
-                return;  // ログイン失敗
-            }
+            // 接続ホストを作成
+            const splitColon = this.ip_address.split(':');
+            const host = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
+            Utils.saveApiHost(host);
 
-            // アカウントページに遷移
-            // ブラウザバックでログインページに戻れないようにする
-            await this.$router.replace({path: '/settings/account'});
+            // メインに遷移
+            // ブラウザバックで接続ページに戻れないようにする
+            await this.$router.replace({path: '/tv/'});
         }
     }
 });
@@ -101,7 +84,7 @@ export default defineComponent({
 </script>
 <style lang="scss" scoped>
 
-.login-container-wrapper {
+.connect-container-wrapper {
     @include smartphone-horizontal {
         padding: 20px !important;
         margin-bottom: 0px !important;
@@ -110,7 +93,7 @@ export default defineComponent({
         margin-bottom: 0px !important;
     }
 
-    .login-container {
+    .connect-container {
         background: rgb(var(--v-theme-background-lighten-1)) !important;
         border-radius: 11px;
         @include smartphone-horizontal {
@@ -122,7 +105,7 @@ export default defineComponent({
             margin-right: 12px !important;
         }
 
-        .login__logo {
+        .connect__logo {
             @include smartphone-horizontal {
                 padding-top: 4px !important;
                 padding-bottom: 8px !important;
@@ -158,7 +141,7 @@ export default defineComponent({
             }
         }
 
-        .login-button {
+        .connect-button {
             border-radius: 7px;
             margin-top: 48px !important;
             font-size: 18px;

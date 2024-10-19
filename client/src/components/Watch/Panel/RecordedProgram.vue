@@ -5,7 +5,7 @@
                 v-html="ProgramUtils.decorateProgramInfo(playerStore.recorded_program, 'title')">
             </h1>
             <div class="program-info__broadcaster" v-if="playerStore.recorded_program.channel !== null">
-                <img class="program-info__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${playerStore.recorded_program.channel.id}/logo`">
+                <img class="program-info__broadcaster-icon" :src="`${Utils.getApiBaseUrl()}/channels/${playerStore.recorded_program.channel.id}/logo`">
                 <div class="program-info__broadcaster-container">
                     <div class="d-flex align-center">
                         <div class="program-info__broadcaster-number">Ch: {{playerStore.recorded_program.channel.channel_number}}</div>

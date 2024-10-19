@@ -59,15 +59,15 @@ class MediaSessionManager implements PlayerManager {
 
         // ライブ視聴でアートワークとして表示するアイコン
         const live_artwork = [
-            {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-            {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+            {src: '/konomitv/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+            {src: '/konomitv/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
         ];
 
         // ビデオ視聴でアートワークとして表示する番組サムネイル
         // TODO: ちゃんと録画番組のサムネイルを設定すべき
         const video_artwork = [
-            {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-            {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+            {src: '/konomitv/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+            {src: '/konomitv/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
         ];
 
         // メディア通知の表示をカスタマイズ

@@ -4,7 +4,7 @@
             @touchmove="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})"
             @click="playerStore.event_emitter.emit('SetControlDisplayTimer', {event: $event})">
         <router-link v-ripple class="watch-navigation__icon" to="/tv/">
-            <img class="watch-navigation__icon-image" src="/assets/images/icon.svg" width="23px">
+            <img class="watch-navigation__icon-image" src="/konomitv/assets/images/icon.svg" width="23px">
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/tv')}"
@@ -24,7 +24,7 @@
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/reserves')}"
             v-ftooltip.right="'録画予約'" to="/reserves/">
-            <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
+            <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/captures')}"

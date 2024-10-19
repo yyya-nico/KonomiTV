@@ -17,7 +17,12 @@ const router = createRouter({
     routes: [
         {
             path: '/',
-            redirect: '/tv/',
+            name: 'Connect',
+            component: () => import('@/views/Connect.vue'),
+            beforeEnter: (to, from, next) => {
+                router['referrer'] = from;
+                next();
+            }
         },
         {
             path: '/tv/',
@@ -125,6 +130,15 @@ const router = createRouter({
             return {top: 0, left: 0};
         }
     }
+});
+
+router.beforeEach((to, from, next) => {
+    if (to.path !== '/' && !Utils.hasApiHost()) {
+        next({path: '/'});
+        return;
+    }
+
+    next();
 });
 
 // ルーティングの変更時に View Transitions API を適用する

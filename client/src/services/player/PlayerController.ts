@@ -252,7 +252,7 @@ class PlayerController {
                 if (this.playback_mode === 'Live') {
 
                     // ライブストリーミング API のベース URL
-                    const streaming_api_base_url = `${Utils.api_base_url}/streams/live/${channels_store.channel.current.display_channel_id}`;
+                    const streaming_api_base_url = `${Utils.getApiBaseUrl()}/streams/live/${channels_store.channel.current.display_channel_id}`;
 
                     // ラジオチャンネルの場合
                     // API が受け付ける画質の値は通常のチャンネルと同じだが (手抜き…)、実際の画質は 48KHz/192kbps で固定される
@@ -294,7 +294,7 @@ class PlayerController {
                 } else {
 
                     // ビデオストリーミング API のベース URL
-                    const streaming_api_base_url = `${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}`;
+                    const streaming_api_base_url = `${Utils.getApiBaseUrl()}/streams/video/${player_store.recorded_program.id}`;
 
                     // 画質リストを作成
                     for (const quality_name of VIDEO_STREAMING_QUALITIES) {
@@ -823,7 +823,7 @@ class PlayerController {
                 // 画質切り替えでベース URL が変わることも想定し、あえて毎回 API URL を取得している
                 if (this.player === null) return;
                 const api_quality = PlayerUtils.extractVideoAPIQualityFromDPlayer(this.player);
-                await APIClient.put(`${Utils.api_base_url}/streams/video/${player_store.recorded_program.id}/${api_quality}/keep-alive`);
+                await APIClient.put(`${Utils.getApiBaseUrl()}/streams/video/${player_store.recorded_program.id}/${api_quality}/keep-alive`);
             }, 5 * 1000);
         }
 

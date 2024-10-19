@@ -110,7 +110,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
         });
 
         // ライブ PSI/SI アーカイブデータストリーミング API の URL を作成
-        const psi_archived_data_api_url = `${Utils.api_base_url}/streams/live/${this.channel.display_channel_id}/${this.api_quality}/psi-archived-data`;
+        const psi_archived_data_api_url = `${Utils.getApiBaseUrl()}/streams/live/${this.channel.display_channel_id}/${this.api_quality}/psi-archived-data`;
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
         // 以降の処理はエンドレスなので非同期で実行

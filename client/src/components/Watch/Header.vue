@@ -4,7 +4,7 @@
             <Icon icon="fluent:arrow-left-12-filled" width="25px" />
         </router-link>
         <img class="watch-header__broadcaster" v-if="playback_mode === 'Live'"
-            :src="`${Utils.api_base_url}/channels/${channelsStore.channel.current.id}/logo`">
+            :src="`${Utils.getApiBaseUrl()}/channels/${channelsStore.channel.current.id}/logo`">
         <span class="watch-header__program-title" v-html="ProgramUtils.decorateProgramInfo(
             playback_mode === 'Live' ? channelsStore.channel.current.program_present : playerStore.recorded_program, 'title'
         )"></span>

@@ -49,6 +49,10 @@
                         <Icon icon="fluent:server-surface-16-filled" width="26px" />
                         <span class="ml-4">サーバー設定</span>
                     </v-btn>
+                    <v-btn variant="flat" class="settings-navigation__button" to="/">
+                        <Icon icon="fa:sign-out" width="26px" />
+                        <span class="ml-4">切断</span>
+                    </v-btn>
                 </nav>
             </v-card>
         </main>

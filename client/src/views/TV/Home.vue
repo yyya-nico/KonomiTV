@@ -29,7 +29,7 @@
                                 v-for="channel in channels" :key="channel.id" :to="`/tv/watch/${channel.display_channel_id}`">
                                 <!-- 以下では Icon コンポーネントを使うとチャンネルが多いときに高負荷になるため、意図的に SVG を直書きしている -->
                                 <div class="channel__broadcaster">
-                                    <img class="channel__broadcaster-icon" :src="`${Utils.api_base_url}/channels/${channel.id}/logo`">
+                                    <img class="channel__broadcaster-icon" :src="`${Utils.getApiBaseUrl()}/channels/${channel.id}/logo`">
                                     <div class="channel__broadcaster-content">
                                         <span class="channel__broadcaster-name">Ch: {{channel.channel_number}} {{channel.name}}</span>
                                         <div class="channel__broadcaster-status">
@@ -87,7 +87,7 @@
                                          :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
-                            <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech/"
+                            <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="wholech/"
                                 v-if="channels_type === '地デジ' && channels.length !== 0">
                                 全てのチャンネルを視聴
                             </a>

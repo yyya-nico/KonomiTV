@@ -2,7 +2,7 @@
     <header class="header" :class="{ 'search-active': is_search_active }">
         <template v-if="!is_search_active">
             <router-link v-ripple class="konomitv-logo" to="/tv/">
-                <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
+                <img class="konomitv-logo__image" src="/konomitv/assets/images/logo.svg" height="21">
             </router-link>
             <v-spacer></v-spacer>
             <div v-ripple class="search-button" @click="activateSearch">
