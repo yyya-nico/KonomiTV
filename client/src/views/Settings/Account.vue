@@ -11,7 +11,7 @@
         <div class="settings__content" :class="{'settings__content--loading': is_loading}">
             <div class="account" v-if="userStore.user === null">
                 <div class="account-wrapper">
-                    <img class="account__icon" src="/konomitv/assets/images/account-icon-default.png">
+                    <img class="account__icon" src="/assets/images/account-icon-default.png">
                     <div class="account__info">
                         <div class="account__info-name">
                             <span class="account__info-name-text">ログインしていません</span>

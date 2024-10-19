@@ -5,7 +5,7 @@
                 <v-card class="connect-container px-10 pt-8 pb-11 mx-auto" elevation="10"
                     width="100%" max-width="450">
                     <v-card-title class="connect__logo py-4 d-flex flex-column justify-center align-center">
-                        <img class="d-block" src="/konomitv/assets/images/logo.svg" style="max-width: 250px;" />
+                        <img class="d-block" src="/assets/images/logo.svg" style="max-width: 250px;" />
                         <h4 class="mt-10">接続</h4>
                     </v-card-title>
                     <v-divider></v-divider>
@@ -46,7 +46,7 @@ export default defineComponent({
     async created() {
 
         // 接続後、設定画面からのアクセスでない限り表示させない
-        const referrer = this.$router.referrer;
+        const referrer = this.$router['referrer'];
         if (referrer.path.includes('/settings/')) {
             Utils.deleteApiHost();
             return;

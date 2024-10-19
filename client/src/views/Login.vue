@@ -7,7 +7,7 @@
                 <v-card class="login-container px-10 pt-8 pb-11 mx-auto" elevation="10"
                     width="100%" max-width="450">
                     <v-card-title class="login__logo py-4 d-flex flex-column justify-center align-center">
-                        <img class="d-block" src="/konomitv/assets/images/logo.svg" style="max-width: 250px;" />
+                        <img class="d-block" src="/assets/images/logo.svg" style="max-width: 250px;" />
                         <h4 class="mt-10">ログイン</h4>
                     </v-card-title>
                     <v-divider></v-divider>
