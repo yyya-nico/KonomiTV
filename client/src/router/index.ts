@@ -20,7 +20,18 @@ const router = createRouter({
             name: 'Connect',
             component: () => import('@/views/Connect.vue'),
             beforeEnter: (to, from, next) => {
-                router['referrer'] = from;
+                // 接続後は、設定画面からのアクセスなら表示する
+                if (from.path.startsWith('/settings/')) {
+                    Utils.deleteApiHost();
+                    next();
+                    return;
+                }
+                // API ホストが記憶されていれば、/tv/にリダイレクト
+                if (Utils.hasApiHost()) {
+                    next({path: '/tv/'});
+                    return;
+                }
+                // そのほかは通常の遷移
                 next();
             }
         },

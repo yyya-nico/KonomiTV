@@ -27,7 +27,6 @@
 </template>
 <script lang="ts">
 
-import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import Message from '@/message';
@@ -43,20 +42,6 @@ export default defineComponent({
             ip_address: '' as string
         };
     },
-    async created() {
-
-        // 接続後、設定画面からのアクセスでない限り表示させない
-        const referrer = this.$router['referrer'];
-        if (referrer.path.includes('/settings/')) {
-            Utils.deleteApiHost();
-            return;
-        }
-
-        if (Utils.hasApiHost()) {
-            await this.$router.replace({path: '/tv/'});
-            return;
-        }
-    },
     methods: {
         async connect() {
 
@@ -66,7 +51,7 @@ export default defineComponent({
                 return;
             } else if (!/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$/.test(this.ip_address)) {
                 Message.error('IPv4のIPアドレスを入力してください。');
-                return;                
+                return;
             }
 
             // 接続ホストを作成
