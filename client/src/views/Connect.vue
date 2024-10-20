@@ -11,10 +11,10 @@
                     <v-divider></v-divider>
                     <v-form ref="connect" @submit.prevent="connect">
                         <v-text-field class="mt-12" color="primary" variant="outlined"
-                            placeholder="IPアドレス" autofocus
-                            hint="IPv4のIPアドレスを入力してください。"
+                            placeholder="ホスト" autofocus
+                            hint="IPv4のホストを入力してください。"
                             :density="is_form_dense ? 'compact' : 'default'"
-                            v-model="ip_address">
+                            v-model="host">
                         </v-text-field>
                         <v-btn type="submit" class="connect-button mt-5" color="secondary" variant="flat" width="100%" height="56">
                             <Icon icon="fa:sign-in" class="mr-2" />接続
@@ -27,9 +27,12 @@
 </template>
 <script lang="ts">
 
+import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import Message from '@/message';
+import Version from '@/services/Version';
+import useVersionStore from '@/stores/VersionStore';
 import Utils from '@/utils';
 
 export default defineComponent({
@@ -39,26 +42,37 @@ export default defineComponent({
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
-            ip_address: '' as string
+            host: '' as string
         };
+    },
+    computed: {
+        ...mapStores(useVersionStore),
     },
     methods: {
         async connect() {
 
-            // IPアドレスが空
-            if (this.ip_address === '') {
-                Message.error('IPアドレスが空です。');
+            // ホストが空
+            if (this.host === '') {
+                Message.error('ホストが空です。');
                 return;
-            } else if (!/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$/.test(this.ip_address)) {
-                Message.error('IPv4のIPアドレスを入力してください。');
+            } else if (!/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$/.test(this.host)) {
+                Message.error('IPv4のホストを入力してください。');
                 return;
             }
 
             // 接続ホストを作成
-            const splitColon = this.ip_address.split(':');
-            const host = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
-            Utils.saveApiHost(host);
+            const splitColon = this.host.split(':');
+            const konomiHost = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
+            Utils.saveApiHost(konomiHost);
 
+            if (await this.versionStore.fetchServerVersion(true) === null) {
+                Message.error('接続先ホストはKonomiTVサーバーではありません。');
+                Utils.deleteApiHost();
+                return;
+            }
+            if (this.versionStore.is_version_mismatch) {
+                Message.warning('このKonomiTVクライアントとKonomiTVサーバーのバージョンが異なるため、正常な動作が保証されません。');
+            }
             // メインに遷移
             // ブラウザバックで接続ページに戻れないようにする
             await this.$router.replace({path: '/tv/'});
