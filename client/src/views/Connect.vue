@@ -65,11 +65,12 @@ export default defineComponent({
             const konomiHost = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
             Utils.saveApiHost(konomiHost);
 
-            if (await this.versionStore.fetchServerVersion(true) === null) {
+            if (await Version.fetchServerVersion(true) === null) {
                 Message.error('接続先ホストはKonomiTVサーバーではありません。');
                 Utils.deleteApiHost();
                 return;
             }
+            await this.versionStore.fetchServerVersion(true);
             if (this.versionStore.is_version_mismatch) {
                 Message.warning('このKonomiTVクライアントとKonomiTVサーバーのバージョンが異なるため、正常な動作が保証されません。');
             }
