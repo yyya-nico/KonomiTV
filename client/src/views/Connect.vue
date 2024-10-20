@@ -11,8 +11,10 @@
                     <v-divider></v-divider>
                     <v-form ref="connect" @submit.prevent="connect">
                         <v-text-field class="mt-12" color="primary" variant="outlined"
-                            placeholder="ホスト" autofocus
-                            hint="IPv4のホストを入力してください。"
+                            type="url" placeholder="ホスト" autofocus validate-on="submit"
+                            pattern="^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$"
+                            hint="IPv4のホストを入力してください。" persistent-hint
+                            :rules="rules"
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="host">
                         </v-text-field>
@@ -29,6 +31,7 @@
 
 import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
+import { VForm } from 'vuetify/components';
 
 import Message from '@/message';
 import Version from '@/services/Version';
@@ -42,7 +45,34 @@ export default defineComponent({
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
-            host: '' as string
+            host: '' as string,
+            rules: [
+                (value: string) => {
+                    // ホストが空
+                    if (value) return true;
+
+                    return 'ホストが空です。';
+                },
+                (value: string) => {
+                    // 形式が不適合
+                    if (/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$/.test(value)) return true;
+
+                    return 'IPv4のホストを入力してください。';
+                },
+                async (value: string) => {
+                    // KonomiTVサーバーが起動していない
+
+                    // 接続ホストを作成
+                    const splitColon = value.split(':');
+                    const konomiHost = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
+                    Utils.saveApiHost(konomiHost);
+
+                    if (await Version.fetchServerVersion(true) !== null) return true;
+
+                    Utils.deleteApiHost();
+                    return '接続先ホストはKonomiTVサーバーではありません。';
+                },
+            ],
         };
     },
     computed: {
@@ -51,25 +81,13 @@ export default defineComponent({
     methods: {
         async connect() {
 
-            // ホストが空
-            if (this.host === '') {
-                Message.error('ホストが空です。');
-                return;
-            } else if (!/^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$/.test(this.host)) {
-                Message.error('IPv4のホストを入力してください。');
+            const validateResult =  await (this.$refs.connect as VForm).validate();
+
+            if (!validateResult.valid) {
+                Message.error(validateResult.errors[0].errorMessages[0]);
                 return;
             }
 
-            // 接続ホストを作成
-            const splitColon = this.host.split(':');
-            const konomiHost = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
-            Utils.saveApiHost(konomiHost);
-
-            if (await Version.fetchServerVersion(true) === null) {
-                Message.error('接続先ホストはKonomiTVサーバーではありません。');
-                Utils.deleteApiHost();
-                return;
-            }
             await this.versionStore.fetchServerVersion(true);
             if (this.versionStore.is_version_mismatch) {
                 Message.warning('このKonomiTVクライアントとKonomiTVサーバーのバージョンが異なるため、正常な動作が保証されません。');
@@ -77,7 +95,7 @@ export default defineComponent({
             // メインに遷移
             // ブラウザバックで接続ページに戻れないようにする
             await this.$router.replace({path: '/tv/'});
-        }
+        },
     }
 });
 
