@@ -8,7 +8,8 @@
                     <h1 class="mt-2" style="font-size: 24px;">マイページ</h1>
                     <router-link v-ripple to="/settings/account" class="account mt-6">
                         <div class="account-wrapper">
-                            <img class="account__icon" :src="userStore.user ? (userStore.user_icon_url ?? '') : '/assets/images/account-icon-default.png'">
+                            <img class="account__icon" v-if="userStore.user" :src="userStore.user_icon_url ?? ''">
+                            <img class="account__icon" v-else src="/assets/images/account-icon-default.png">
                             <div class="account__info">
                                 <div class="account__info-name">
                                     <span class="account__info-name-text">{{ userStore.user ? userStore.user.name : 'ログインしていません' }}</span>

@@ -23,7 +23,7 @@
                     <Icon icon="fa:sign-in" class="mr-2" />ログイン
                 </v-btn>
             </div>
-            <div class="account" v-if="userStore.user !== null">
+            <div class="account" v-else>
                 <div class="account-wrapper">
                     <img class="account__icon" :src="userStore.user_icon_url ?? ''">
                     <div class="account__info">
@@ -81,7 +81,7 @@
                     <Icon icon="fluent:person-add-20-filled" class="mr-2" height="24" />アカウントを作成
                 </v-btn>
             </div>
-            <div v-if="userStore.is_logged_in === true">
+            <div v-else>
                 <div class="settings__item settings__item--switch">
                     <label class="settings__item-heading" for="sync_settings">設定をデバイス間で同期する</label>
                     <label class="settings__item-label" for="sync_settings">
