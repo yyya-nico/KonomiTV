@@ -1,6 +1,8 @@
 import './style.css';
-import Utils from '@/utils';
 import mpegts from 'mpegts.js';
+
+import Utils from '@/utils';
+
 
 document.addEventListener('DOMContentLoaded', async () => {
     const wrap = document.getElementById('wrap');
@@ -207,7 +209,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     };
 
     let listening = null;
-    let p = Promise.resolve();
     getDisplayGR().forEach((ch, index) => {
         const html =
         `<div class="chframe">
@@ -242,42 +243,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                 tuning(index);
             }
         });
-        p = p.then(() => {
-            return new Promise(resolve => {
-                if (mpegts.getFeatureList().mseLivePlayback) {
-                    const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${ch.display_channel_id}/360p/mpegts`;
-                    const player = mpegts.createPlayer({
-                        type: 'mse',  // could also be mpegts, m2ts, flv
-                        isLive: true,
-                        url: streamPath
-                    });
-                    player.attachMediaElement(video);
-                    reloadButton.addEventListener('click', e => {
-                        e.stopPropagation();
-                        player.unload();
-                        if (e.shiftKey) {
-                            alert('Shiftキーを押しながらクリックしたため、読み込み停止をしました。');
-                        } else {
-                            player.load();
-                            player.play();
-                        }
-                    });
-                    setTimeout(resolve, 500);
-                    player.load();
-                    player.play()
-                        .then(function () {
-                            tuning('all');
-                        })
-                        .catch(function () {
-                            player.muted = true;
-                            player.play();
-                        });
-                }
+        if (mpegts.getFeatureList().mseLivePlayback) {
+            const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${ch.display_channel_id}/360p/mpegts`;
+            const player = mpegts.createPlayer({
+                type: 'mse',  // could also be mpegts, m2ts, flv
+                isLive: true,
+                url: streamPath
             });
-        });
+            player.attachMediaElement(video);
+            reloadButton.addEventListener('click', e => {
+                e.stopPropagation();
+                player.unload();
+                if (e.shiftKey) {
+                    alert('Shiftキーを押しながらクリックしたため、読み込み停止をしました。');
+                    return;
+                }
+                player.load();
+                player.play();
+            });
+            player.load();
+            player.play()
+                .then(function () {
+                    tuning('all');
+                })
+                .catch(function () {
+                    player.muted = true;
+                    player.play();
+                });
+        }
     });
     controlInit();
-    await p;
 
     setInterval(async () => {
         await channelsUpdate();
