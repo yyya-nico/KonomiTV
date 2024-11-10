@@ -63,8 +63,8 @@ export default defineComponent({
                     // KonomiTVサーバーが起動していない
 
                     // 接続ホストを作成
-                    const splitColon = value.split(':');
-                    const konomiHost = `${splitColon[0].replaceAll('.', '-')}.local.konomi.tv:${splitColon[1] ?? 7000}`;
+                    const [host, port] = value.split(':');
+                    const konomiHost = `${host.replaceAll('.', '-')}.local.konomi.tv:${port ?? 7000}`;
                     Utils.saveApiHost(konomiHost);
 
                     if (await Version.fetchServerVersion(true) !== null) return true;
