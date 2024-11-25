@@ -125,10 +125,10 @@ class CaptureCompositor implements ICaptureCompositor {
 
         // コメント描画に関しては Bold しか利用しない
         const font_faces: FontFace[] = [
-            new FontFace('Open Sans', 'url(/assets/fonts/OpenSans-Bold.woff2)', {weight: 'bold'}),
-            new FontFace('YakuHanJPs', 'url(/assets/fonts/YakuHanJPs-Bold.woff2)', {weight: 'bold'}),
-            new FontFace('Twemoji', 'url(/assets/fonts/Twemoji.woff2)', {weight: 'bold'}),
-            new FontFace('Noto Sans JP', 'url(/assets/fonts/NotoSansJP-Bold.woff2)', {weight: 'bold'}),
+            new FontFace('Open Sans', 'url(/konomitv/assets/fonts/OpenSans-Bold.woff2)', {weight: 'bold'}),
+            new FontFace('YakuHanJPs', 'url(/konomitv/assets/fonts/YakuHanJPs-Bold.woff2)', {weight: 'bold'}),
+            new FontFace('Twemoji', 'url(/konomitv/assets/fonts/Twemoji.woff2)', {weight: 'bold'}),
+            new FontFace('Noto Sans JP', 'url(/konomitv/assets/fonts/NotoSansJP-Bold.woff2)', {weight: 'bold'}),
         ];
 
         // フォントを一括ロード

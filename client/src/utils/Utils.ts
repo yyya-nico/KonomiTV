@@ -1,8 +1,6 @@
 
 import { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
-let apiHostCache: string | null = null;
-
 /**
  * 共通ユーティリティ
  */
@@ -29,9 +27,8 @@ export default class Utils {
      * @returns API ホスト（未設定の場合は7000ポートが返る）
      */
     static getApiHost(): string {
-        apiHostCache = typeof localStorage !== 'undefined' && localStorage.getItem('KonomiTV-ApiHost') || apiHostCache;
 
-        return apiHostCache ?? `${self.location.hostname}:7000`;
+        return localStorage.getItem('KonomiTV-ApiHost') ?? `${self.location.hostname}:7000`;
     }
 
 
@@ -53,9 +50,6 @@ export default class Utils {
 
         // そのまま LocalStorage に保存
         localStorage.setItem('KonomiTV-ApiHost', host);
-
-        // キャッシュにも保存
-        apiHostCache = host;
     }
 
 
@@ -67,9 +61,6 @@ export default class Utils {
 
         // KonomiTV-ApiHost キーを削除
         localStorage.removeItem('KonomiTV-ApiHost');
-
-        // キャッシュも削除
-        apiHostCache = null;
     }
 
 

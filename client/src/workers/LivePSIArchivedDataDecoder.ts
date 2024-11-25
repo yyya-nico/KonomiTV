@@ -30,7 +30,7 @@ export interface ILivePSIArchivedDataDecoder {
 }
 
 export interface ILivePSIArchivedDataDecoderConstructor {
-    new (channel: ILiveChannel, api_quality: string): ILivePSIArchivedDataDecoder;
+    new (channel: ILiveChannel, api_quality: string, api_base_url: string): ILivePSIArchivedDataDecoder;
 }
 
 
@@ -46,6 +46,9 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
     // 現在視聴中の API 上の画質 ID (ex: 1080p-60fps)
     private readonly api_quality: string;
 
+    // API のベース URL
+    private readonly api_base_url: string;
+
     // PSI/SI アーカイブデータの読み込みに必要な情報
     private psi_archived_data: Uint8Array = new Uint8Array(0);
     private psi_archived_data_api_abort_controller: AbortController | null = null;
@@ -57,10 +60,12 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
      * ここで渡すチャンネル情報はメインスレッドから渡された後は当然更新されないが、実際に利用するのは不変のチャンネル ID 系のみなので問題ない
      * @param channel 対象のチャンネル情報
      * @param api_quality 現在視聴中の API 上の画質 ID (ex: 1080p-60fps)
+     * @param api_base_url API のベース URL
      */
-    constructor(channel: ILiveChannel, api_quality: string) {
+    constructor(channel: ILiveChannel, api_quality: string, api_base_url: string) {
         this.channel = channel;
         this.api_quality = api_quality;
+        this.api_base_url = api_base_url;
     }
 
 
@@ -110,7 +115,7 @@ class LivePSIArchivedDataDecoder implements ILivePSIArchivedDataDecoder {
         });
 
         // ライブ PSI/SI アーカイブデータストリーミング API の URL を作成
-        const psi_archived_data_api_url = `${Utils.getApiBaseUrl()}/streams/live/${this.channel.display_channel_id}/${this.api_quality}/psi-archived-data`;
+        const psi_archived_data_api_url = `${this.api_base_url}/streams/live/${this.channel.display_channel_id}/${this.api_quality}/psi-archived-data`;
 
         // ライブ PSI/SI アーカイブデータストリーミング API にリクエスト
         // 以降の処理はエンドレスなので非同期で実行
