@@ -89,7 +89,7 @@ export class PlayerUtils {
     static generatePlayerBackgroundURL(): string {
         const background_count = 50;  // 50種類から選択
         const random = (Math.floor(Math.random() * background_count) + 1);
-        return `/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
+        return `/konomitv/assets/images/player-backgrounds/${random.toString().padStart(2, '0')}.jpg`;
     }
 
 

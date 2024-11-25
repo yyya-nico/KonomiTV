@@ -46,8 +46,8 @@
             <div class="tweet-form__control">
                 <div v-ripple class="account-button" :class="{'account-button--no-login': !twitterStore.is_logged_in_twitter}"
                     @click="clickAccountButton()">
-                    <img class="account-button__icon"
-                        :src="twitterStore.is_logged_in_twitter ? twitterStore.selected_twitter_account?.icon_url : '/assets/images/account-icon-default.png'">
+                    <img class="account-button__icon" v-if="twitterStore.is_logged_in_twitter" :src="twitterStore.selected_twitter_account?.icon_url">
+                    <img class="account-button__icon" v-else src="/assets/images/account-icon-default.png">
                     <span class="account-button__screen-name">
                         {{twitterStore.is_logged_in_twitter ? `@${twitterStore.selected_twitter_account?.screen_name}` : '連携されていません'}}
                     </span>
