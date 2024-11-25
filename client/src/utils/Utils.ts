@@ -11,6 +11,9 @@ export default class Utils {
     // ビルド時の環境変数 (vue.config.js に記載) から取得
     static readonly version: string = import.meta.env.KONOMITV_VERSION;
 
+    // API ホストのキャッシュ
+    static apiHostCache: string | null = null;
+
 
     /**
      * API ベースURLを取得する
@@ -28,8 +31,9 @@ export default class Utils {
      * @returns API ホスト（未設定の場合は7000ポートが返る）
      */
     static getApiHost(): string {
+        Utils.apiHostCache = localStorage?.getItem('KonomiTV-ApiHost') ?? Utils.apiHostCache;
 
-        return localStorage.getItem('KonomiTV-ApiHost') ?? `${self.location.hostname}:7000`;
+        return Utils.apiHostCache ?? `${self.location.hostname}:7000`;
     }
 
 
@@ -51,6 +55,9 @@ export default class Utils {
 
         // そのまま LocalStorage に保存
         localStorage.setItem('KonomiTV-ApiHost', host);
+
+        // キャッシュにも保存
+        Utils.apiHostCache = host;
     }
 
 
@@ -62,6 +69,9 @@ export default class Utils {
 
         // KonomiTV-ApiHost キーを削除
         localStorage.removeItem('KonomiTV-ApiHost');
+
+        // キャッシュも削除
+        Utils.apiHostCache = null;
     }
 
 
