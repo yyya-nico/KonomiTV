@@ -29,7 +29,7 @@ export default class Utils {
      * @returns API ホスト（未設定の場合は7000ポートが返る）
      */
     static getApiHost(): string {
-        apiHostCache = localStorage?.getItem('KonomiTV-ApiHost') ?? apiHostCache;
+        apiHostCache = typeof localStorage !== 'undefined' && localStorage.getItem('KonomiTV-ApiHost') || apiHostCache;
 
         return apiHostCache ?? `${self.location.hostname}:7000`;
     }
