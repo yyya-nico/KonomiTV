@@ -10,7 +10,7 @@
                     </v-card-title>
                     <v-divider></v-divider>
                     <v-form ref="connect" @submit.prevent="connect">
-                        <v-text-field class="mt-12" color="primary" variant="outlined"
+                        <v-text-field class="mt-12" name="ipv4-host" color="primary" variant="outlined"
                             type="url" placeholder="ホスト" autofocus validate-on="submit"
                             pattern="^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(:[0-9]+)?$"
                             hint="IPv4のホストを入力してください。" persistent-hint
