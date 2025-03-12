@@ -3,7 +3,7 @@
     <SettingsBase>
         <h2 class="settings__heading">
             <a v-ripple class="settings__back-button" @click="$router.back()">
-                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                <Icon icon="fluent:chevron-left-12-filled" width="27px" />
             </a>
             <Icon icon="bi:chat-left-text-fill" width="19px" />
             <span class="ml-3">ニコニコ実況</span>
@@ -28,7 +28,7 @@
             </div>
             <div class="niconico-account" v-if="userStore.user !== null && userStore.user.niconico_user_id !== null">
                 <div class="niconico-account-wrapper">
-                    <img class="niconico-account__icon" :src="userStore.user_niconico_icon_url ?? ''">
+                    <img class="niconico-account__icon" :src="userStore.user_niconico_icon_url ?? ''" @error="setDefaultIcon">
                     <div class="niconico-account__info">
                         <div class="niconico-account__info-name">
                             <span class="niconico-account__info-name-text">{{userStore.user.niconico_user_name}} と連携しています</span>
@@ -179,6 +179,10 @@ export default defineComponent({
         }
     },
     methods: {
+        setDefaultIcon(event: Event) {
+            (event.target as HTMLImageElement).src = '/assets/images/account-icon-default.png';
+        },
+
         async loginNiconicoAccount() {
 
             // ログインしていない場合はエラーにする

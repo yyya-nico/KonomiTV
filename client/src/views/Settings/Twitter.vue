@@ -3,7 +3,7 @@
     <SettingsBase>
         <h2 class="settings__heading">
             <a v-ripple class="settings__back-button" @click="$router.back()">
-                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                <Icon icon="fluent:chevron-left-12-filled" width="27px" />
             </a>
             <Icon icon="fa-brands:twitter" width="22px" />
             <span class="ml-3">Twitter</span>
@@ -54,7 +54,7 @@
                             <p class="mt-1">万全は期していますが、非公式な方法のため、使い方次第ではアカウントにペナルティが適用される可能性もあります。自己の責任のもとでご利用ください。</p>
                             <blockquote class="mt-3">
                                 <p>基本的には Cookie でのログインを推奨します。その方がスパム判定されづらいためです。</p>
-                                <p class="mt-1">また、2要素認証 (2FA)が設定されているアカウントではパスワードログインを利用できません。</p>
+                                <p class="mt-1">また、2要素認証 (2FA) が設定されているアカウントではパスワードログインを利用できません。</p>
                             </blockquote>
                             <v-tabs class="settings__tab mt-1" color="primary" bg-color="transparent" align-tabs="center" v-model="twitter_auth_tab">
                                 <v-tab style="text-transform: none !important;" v-for="auth_type in ['Cookie でログイン', 'パスワードでログイン']" :key="auth_type">

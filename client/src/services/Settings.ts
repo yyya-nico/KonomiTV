@@ -20,6 +20,17 @@ export interface IClientSettings {
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: string[];
+    mylist: {
+        type: 'Series' | 'RecordedProgram';
+        id: number;
+        created_at: number;
+    }[];
+    watched_history: {
+        video_id: number;
+        last_playback_position: number;
+        created_at: number;
+        updated_at: number;
+    }[];
     // lshaped_screen_crop_enabled: 同期無効
     // lshaped_screen_crop_zoom_level: 同期無効
     // lshaped_screen_crop_x_position: 同期無効
@@ -29,6 +40,8 @@ export interface IClientSettings {
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    show_player_background_image: boolean;
+    use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効

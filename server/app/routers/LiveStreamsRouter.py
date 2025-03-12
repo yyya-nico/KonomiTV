@@ -128,12 +128,10 @@ async def LiveStreamEventAPI(
     ライブストリームのイベントを Server-Sent Events で随時配信する。
 
     イベントには、
-
     - 初回接続時に現在のステータスを示す **initial_update**
     - ステータスの更新を示す **status_update**
     - ステータス詳細の更新を示す **detail_update**
     - クライアント数の更新を示す **clients_update**
-
     の4種類がある。
 
     どのイベントでも配信される JSON 構造は同じ。<br>
@@ -240,7 +238,7 @@ async def LivePSIArchivedDataAPI(
 
     # 10秒待っても起動しなかった場合はエラー
     if live_stream.psi_data_archiver is None:
-        logging.error(f'[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
+        logging.error('[LiveStreamsRouter][LivePSIArchivedDataAPI] PSI/SI Data Archiver is not running')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'PSI/SI Data Archiver is not running',

@@ -3,13 +3,21 @@ import APIClient from  '@/services/APIClient';
 import { IChannel } from '@/services/Channels';
 import { CommentUtils } from '@/utils';
 
+/** ソート順序を表す型 */
+export type SortOrder = 'desc' | 'asc';
+
+/** マイリストのソート順序を表す型 */
+export type MylistSortOrder = 'mylist_added_desc' | 'mylist_added_asc' | 'recorded_desc' | 'recorded_asc';
 
 /** 録画ファイル情報を表すインターフェース */
 export interface IRecordedVideo {
     id: number;
+    status: 'Recording' | 'Recorded';
     file_path: string;
     file_hash: string;
     file_size: number;
+    file_created_at: string;
+    file_modified_at: string;
     recording_start_time: string | null;
     recording_end_time: string | null;
     duration: number;
@@ -20,21 +28,27 @@ export interface IRecordedVideo {
     video_frame_rate: number;
     video_resolution_width: number;
     video_resolution_height: number;
-    primary_audio_codec: 'AAC-LC' | 'HE-AAC' | 'MP2';
+    primary_audio_codec: 'AAC-LC';
     primary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch';
     primary_audio_sampling_rate: number;
-    secondary_audio_codec: 'AAC-LC' | 'HE-AAC' | 'MP2' | null;
+    secondary_audio_codec: 'AAC-LC' | null;
     secondary_audio_channel: 'Monaural' | 'Stereo' | '5.1ch' | null;
     secondary_audio_sampling_rate: number | null;
+    has_key_frames: boolean;
     cm_sections: { start_time: number; end_time: number; }[];
+    created_at: string;
+    updated_at: string;
 }
 
 /** 録画ファイル情報を表すインターフェースのデフォルト値 */
 export const IRecordedVideoDefault: IRecordedVideo = {
     id: -1,
+    status: 'Recorded',
     file_path: '',
     file_hash: '',
     file_size: 0,
+    file_created_at: '2000-01-01T00:00:00+09:00',
+    file_modified_at: '2000-01-01T00:00:00+09:00',
     recording_start_time: null,
     recording_end_time: null,
     duration: 0,
@@ -51,7 +65,10 @@ export const IRecordedVideoDefault: IRecordedVideo = {
     secondary_audio_codec: null,
     secondary_audio_channel: null,
     secondary_audio_sampling_rate: null,
+    has_key_frames: false,
     cm_sections: [],
+    created_at: '2000-01-01T00:00:00+09:00',
+    updated_at: '2000-01-01T00:00:00+09:00',
 };
 
 /** 録画番組情報を表すインターフェース */
@@ -82,6 +99,8 @@ export interface IRecordedProgram {
     primary_audio_language: string;
     secondary_audio_type: string | null;
     secondary_audio_language: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
 /** 録画番組情報を表すインターフェースのデフォルト値 */
@@ -112,6 +131,8 @@ export const IRecordedProgramDefault: IRecordedProgram = {
     primary_audio_language: '日本語',
     secondary_audio_type: null,
     secondary_audio_language: null,
+    created_at: '2000-01-01T00:00:00+09:00',
+    updated_at: '2000-01-01T00:00:00+09:00',
 };
 
 /** 録画番組情報リストを表すインターフェース */
@@ -137,8 +158,68 @@ export interface IJikkyoComments {
     detail: string;
 }
 
-
 class Videos {
+
+    /**
+     * 録画番組一覧を取得する
+     * @param order ソート順序 ('desc' or 'asc' or 'ids')
+     * @param page ページ番号
+     * @param ids 録画番組の ID のリスト
+     * @returns 録画番組一覧情報 or 録画番組一覧情報の取得に失敗した場合は null
+     */
+    static async fetchVideos(order: 'desc' | 'asc' | 'ids' = 'desc', page: number = 1, ids: number[] | null = null): Promise<IRecordedPrograms | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IRecordedPrograms>('/videos', {
+            params: {
+                order,
+                page,
+                ids,
+            },
+            // 録画番組の ID のリストを FastAPI が受け付ける &ids=1&ids=2&ids=3&... の形式にエンコードする
+            // ref: https://github.com/axios/axios/issues/5058#issuecomment-1272107602
+            paramsSerializer: {
+                indexes: null,
+            },
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画番組一覧を取得できませんでした。');
+            return null;
+        }
+
+        return response.data;
+    }
+
+
+    /**
+     * 録画番組を検索する
+     * @param query 検索キーワード
+     * @param order ソート順序 ('desc' or 'asc')
+     * @param page ページ番号
+     * @returns 検索結果の録画番組一覧情報 or 検索に失敗した場合は null
+     */
+    static async searchVideos(query: string, order: 'desc' | 'asc' = 'desc', page: number = 1): Promise<IRecordedPrograms | null> {
+
+        // API リクエストを実行
+        const response = await APIClient.get<IRecordedPrograms>('/videos/search', {
+            params: {
+                query,
+                order,
+                page,
+            },
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            APIClient.showGenericError(response, '録画番組の検索に失敗しました。');
+            return null;
+        }
+
+        return response.data;
+    }
+
 
     /**
      * 録画番組情報を取得する
@@ -185,6 +266,87 @@ class Videos {
             return CommentUtils.isMutedComment(comment.text, comment.author, comment.color, comment.type, comment.size) === false;
         });
         return response.data;
+    }
+
+
+    /**
+     * 録画番組のメタデータを再解析する
+     * @param video_id 録画番組の ID
+     * @returns メタデータ再解析に成功した場合は true
+     */
+    static async reanalyzeVideo(video_id: number): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post(`/videos/${video_id}/reanalyze`, undefined, {
+            // 数分以上かかるのでタイムアウトを 10 分に設定
+            timeout: 10 * 60 * 1000,
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'メタデータの再解析に失敗しました。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+
+    /**
+     * 録画番組のサムネイルを再作成する
+     * @param video_id 録画番組の ID
+     * @param skip_tile_if_exists 既に存在する場合はサムネイルタイルの生成をスキップするかどうか (デフォルト: False)
+     * @returns サムネイル再作成に成功した場合は true
+     */
+    static async regenerateThumbnail(video_id: number, skip_tile_if_exists: boolean = false): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.post(`/videos/${video_id}/thumbnail/regenerate`, undefined, {
+            params: {
+                skip_tile_if_exists: skip_tile_if_exists ? 'true' : 'false',
+            },
+            // 数分以上かかるのでタイムアウトを 30 分に設定
+            timeout: 30 * 60 * 1000,
+        });
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, 'サムネイルの再作成に失敗しました。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * 録画番組を削除する
+     * @param video_id 録画番組の ID
+     * @returns 削除に成功した場合は true
+     */
+    static async deleteVideo(video_id: number): Promise<boolean> {
+
+        // API リクエストを実行
+        const response = await APIClient.delete(`/videos/${video_id}`);
+
+        // エラー処理
+        if (response.type === 'error') {
+            switch (response.data.detail) {
+                default:
+                    APIClient.showGenericError(response, '録画ファイルの削除に失敗しました。');
+                    break;
+            }
+            return false;
+        }
+
+        return true;
     }
 }
 
