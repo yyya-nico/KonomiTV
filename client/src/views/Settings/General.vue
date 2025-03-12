@@ -3,7 +3,7 @@
     <SettingsBase>
         <h2 class="settings__heading">
             <a v-ripple class="settings__back-button" @click="$router.back()">
-                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                <Icon icon="fluent:chevron-left-12-filled" width="27px" />
             </a>
             <Icon icon="fa-solid:sliders-h" width="19px" style="margin: 0 4px;" />
             <span class="ml-3">全般</span>
@@ -20,6 +20,26 @@
                 <Icon icon="iconamoon:sorting-left-bold" height="19px" />
                 <span class="ml-1">ピン留め中チャンネルの並び替え設定を開く</span>
             </v-btn>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="show_player_background_image">プレイヤーの読み込み中に背景写真を表示する</label>
+                <label class="settings__item-label" for="show_player_background_image">
+                    プレイヤーの読み込み中にランダムで背景写真を表示できます。デフォルトはオンです。<br>
+                    背景写真を表示したくない場合は、この設定をオフにできます。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="show_player_background_image" hide-details
+                    v-model="settingsStore.settings.show_player_background_image">
+                </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="use_pure_black_player_background">プレイヤー表示領域の背景色を完全な黒にする</label>
+                <label class="settings__item-label" for="use_pure_black_player_background">
+                    映像の上下 or 左右に表示される黒帯の色を、完全な黒に変更できます。デフォルトはオフです。<br>
+                    特に有機 EL ディスプレイを搭載したデバイスで、映像の周囲に灰色がかった光が漏れて気になるときは、この設定をオンにすると改善されるかもしれません。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="use_pure_black_player_background" hide-details
+                    v-model="settingsStore.settings.use_pure_black_player_background">
+                </v-switch>
+            </div>
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="tv_channel_selection_requires_alt_key">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
                 <label class="settings__item-label" for="tv_channel_selection_requires_alt_key">

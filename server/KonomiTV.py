@@ -163,12 +163,6 @@ def main(
     # このプロセスが終了されたときに、HTTPS リバースプロキシも一緒に終了する
     atexit.register(lambda: reverse_proxy_process.terminate())
 
-    # Uvicorn を自動リロードモードで起動するかのフラグ
-    ## 基本的に開発時用で、コードを変更するとアプリケーションサーバーを自動で再起動してくれる
-    if sys.platform == 'win32' and reload is True:
-        logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
-        logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
-
     # Uvicorn の設定
     server_config = uvicorn.Config(
         # 起動するアプリケーション
@@ -190,8 +184,8 @@ def main(
         interface = 'asgi3',
         # HTTP プロトコルの実装として httptools を選択
         http = 'httptools',
-        # イベントループの実装として Windows では asyncio 、それ以外では uvloop を選択
-        loop = ('asyncio' if sys.platform == 'win32' else 'uvloop'),
+        # イベントループのセットアップは自前で行うため、ここでは none を指定
+        loop = 'none',
         # ストリーミング配信中にサーバーシャットダウンを要求された際、強制的に接続を切断するまでの秒数
         timeout_graceful_shutdown = 1,
     )
@@ -199,20 +193,42 @@ def main(
     # Uvicorn のサーバーインスタンスを初期化
     server = uvicorn.Server(server_config)
 
+    # Linux では Uvloop をイベントループとして利用する
+    # Windows では Winloop をイベントループとして利用する予定だったが、2025年3月時点では
+    # キャプチャ保存時 (?) に稀にプロセスごと無言で落ちる問題があるため、当面は通常の asyncio (ProactorEventLoop) を利用する
+    # ref: https://github.com/Vizonex/Winloop
+    if sys.platform == 'win32':
+        if reload is True:
+            logging.warning('Python の asyncio の技術的な制約により、Windows では自動リロードモードは正常に動作しません。')
+            logging.warning('なお、外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能します。')
+        # Aerich 0.8.2 以降では Windows のみインポート時にイベントループポリシーが SelectorEventLoop に変更されてしまうが、
+        # asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、明示的に ProactorEventLoop に戻す
+        # psycopg3 バックエンドが SelectorEventLoop しか対応していない件の対策らしいが、KonomiTV では SQLite を利用しているため問題ない
+        # ref: https://github.com/tortoise/aerich/pull/251
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    else:
+        import uvloop
+        uvloop.install()
+
     # Uvicorn を起動
     ## 自動リロードモードと通常時で呼び方が異なる
     ## ここで終了までブロッキングされる（非同期 I/O のエントリーポイント）
     ## ref: https://github.com/encode/uvicorn/blob/0.18.2/uvicorn/main.py#L568-L575
-    if server_config.should_reload:
-        # 自動リロードモード (Linux 専用)
-        ## Windows で自動リロードモードを機能させるには SelectorEventLoop が必要だが、外部プロセス実行に利用している
-        ## asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、Windows では事実上利用できない
-        ## 外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能する
-        sock = server_config.bind_socket()
-        WatchFilesReload(server_config, target=server.run, sockets=[sock]).run()
-    else:
-        # 通常時
-        server.run()
+    try:
+        if server_config.should_reload:
+            # 自動リロードモード (Linux 専用)
+            ## Windows で自動リロードモードを機能させるには SelectorEventLoop が必要だが、外部プロセス実行に利用している
+            ## asyncio.subprocess.create_subprocess_exec() は ProactorEventLoop でないと動作しないため、Windows では事実上利用できない
+            ## 外部プロセス実行を伴うストリーミング視聴を行わなければ一応 Windows でも機能する
+            sock = server_config.bind_socket()
+            WatchFilesReload(server_config, target=server.run, sockets=[sock]).run()
+        else:
+            # 通常時
+            server.run()
+    except KeyboardInterrupt:
+        # Uvicorn のサーバーインスタンスから KeyboardInterrupt が送出された場合は一旦無視して、HTTPS リバースプロキシを確実に終了する
+        # 少し前の Uvicorn は KeyboardInterrupt を内部で握り潰していたが、最近のバージョンから送出するようになった
+        pass
 
     # HTTPS リバースプロキシを終了
     reverse_proxy_process.terminate()
@@ -232,7 +248,7 @@ def main(
         # os.execv() で現在のプロセスを新規に起動したプロセスに置き換える
         ## os.execv() は戻らないので、事前にロックファイルを削除しておく
         RESTART_REQUIRED_LOCK_PATH.unlink()
-        os.execv(sys.executable, [sys.executable] + sys.argv)
+        os.execv(sys.executable, [sys.executable, *sys.argv])
 
 
 if __name__ == '__main__':

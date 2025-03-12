@@ -11,7 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi_restful.tasks import repeat_every
+from fastapi_utils.tasks import repeat_every
 from pathlib import Path
 
 from app import logging
@@ -23,6 +23,7 @@ from app.constants import (
     QUALITY,
     VERSION,
 )
+from app.metadata.RecordedScanTask import RecordedScanTask
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.models.TwitterAccount import TwitterAccount
@@ -86,13 +87,15 @@ app.include_router(MaintenanceRouter.router)
 app.include_router(VersionRouter.router)
 
 # CORS の設定
-## デバッグモード時のみ全てのオリジンからのリクエストを許可 (クライアント側の開発サーバーからのアクセスに必要)
-CORS_ORIGINS = ['*'] if CONFIG.general.debug is True else []
+## 開発環境では全てのオリジンからのリクエストを許可
+## 本番環境では app.konomi.tv 以外のオリジンからのリクエストを拒否
+CORS_ORIGINS = ['*'] if CONFIG.general.debug is True else ['https://app.konomi.tv']
 app.add_middleware(
     CORSMiddleware,
     allow_origins = CORS_ORIGINS,
-    allow_methods = CORS_ORIGINS,
-    allow_headers = CORS_ORIGINS,
+    # すべての HTTP メソッドと HTTP ヘッダーを許可
+    allow_methods = ['*'],
+    allow_headers = ['*'],
     allow_credentials = True,
 )
 
@@ -114,10 +117,10 @@ for suffix, mime_type in [
 # 静的ファイルの配信
 app.mount('/assets', StaticFiles(directory=CLIENT_DIR / 'assets', html=True))
 
-# ルート以下のルーティング
+# ルート以下のルーティング (同期ファイル I/O を伴うため同期関数として実装している)
 # ファイルが存在すればそのまま配信し、ファイルが存在しなければ index.html を返す
 @app.get('/{file:path}', include_in_schema=False)
-async def Root(file: str):
+def Root(file: str):
 
     # ディレクトリトラバーサル対策のためのチェック
     ## ref: https://stackoverflow.com/a/45190125/17124142
@@ -177,8 +180,10 @@ tortoise.contrib.fastapi.register_tortoise(
 )
 
 # サーバーの起動時に実行する
+recorded_scan_task: RecordedScanTask | None = None
 @app.on_event('startup')
 async def Startup():
+    global recorded_scan_task
 
     # チャンネル情報を更新
     await Channel.update()
@@ -197,13 +202,11 @@ async def Startup():
         for quality in QUALITY:
             LiveStream(channel.display_channel_id, quality)
 
-    # 録画フォルダ配下の録画ファイルのメタデータを更新/同期
+    # 録画フォルダ監視・メタデータ更新/同期タスクを開始
     ## 録画ファイルの量次第では録画ファイルの更新確認に時間がかかるため、非同期で実行する
-    async def run():
-        # サーバーの起動完了を待ってから実行する
-        await asyncio.sleep(0.1)
-        # await RecordedVideo.update()
-    asyncio.create_task(run())
+    # ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+    recorded_scan_task = RecordedScanTask()
+    await recorded_scan_task.start()
 
 # サーバー設定で指定された時間 (デフォルト: 15分) ごとに1回、チャンネル情報と番組情報を更新する
 # チャンネル情報は頻繁に変わるわけではないけど、手動で再起動しなくても自動で変更が適用されてほしい
@@ -249,6 +252,12 @@ async def Shutdown():
     # 全てのチューナーインスタンスを終了する (EDCB バックエンドのみ)
     if CONFIG.general.backend == 'EDCB':
         await EDCBTuner.closeAll()
+
+    # 録画フォルダ監視タスクを停止
+    global recorded_scan_task
+    if recorded_scan_task is not None:
+        await recorded_scan_task.stop()
+        recorded_scan_task = None
 
 # shutdown イベントが発火しない場合も想定し、アプリケーションの終了時に Shutdown() が確実に呼ばれるように
 # atexit は同期関数しか実行できないので、asyncio.run() でくるむ

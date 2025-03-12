@@ -33,7 +33,7 @@
                         <span class="ml-1">データ</span>
                     </button>
                     <button v-ripple class="remote-control-button-back" data-arib-key-code="19">
-                        <Icon icon="fluent:arrow-left-12-filled" width="20px" />
+                        <Icon icon="fluent:chevron-left-12-filled" width="20px" />
                         <span class="ml-1">戻る</span>
                     </button>
                     <button v-ripple class="remote-control-button-blue bg-blue-darken-3" data-arib-key-code="21">青</button>
@@ -92,7 +92,7 @@ export default defineComponent({
     overflow-y: scroll;
     opacity: 0;
     visibility: hidden;
-    z-index: 5;
+    z-index: 20;
     &--showing {
         opacity: 1;
         visibility: visible;
@@ -146,7 +146,7 @@ export default defineComponent({
                 visibility: hidden;
                 transition: opacity 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94), visibility 0.2s cubic-bezier(0.4, 0.38, 0.49, 0.94);
                 will-change: opacity;
-                z-index: 3;
+                z-index: 21;
             }
 
             .remote-control__directional-key {

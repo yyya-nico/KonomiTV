@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 
 # バージョン
-VERSION = '0.11.0'
+VERSION = '0.12.0'
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,7 +23,7 @@ DATA_DIR = BASE_DIR / 'data'
 ## アカウントのアイコン画像があるディレクトリ
 ACCOUNT_ICON_DIR = DATA_DIR / 'account-icons'
 ## サムネイル画像があるディレクトリ
-THUMBNAIL_DIR = DATA_DIR / 'thumbnails'
+THUMBNAILS_DIR = DATA_DIR / 'thumbnails'
 ## サーバー終了時に再起動が必要なことを伝えるロックファイルのパス
 RESTART_REQUIRED_LOCK_PATH = DATA_DIR / 'restart_required.lock'
 
@@ -67,7 +67,7 @@ __model_list = [name for _, name, _ in pkgutil.iter_modules(path=['app/models'])
 DATABASE_CONFIG = {
     'timezone': 'Asia/Tokyo',
     'connections': {
-        'default': f'sqlite://{str(DATA_DIR / "database.sqlite")}',
+        'default': f'sqlite://{DATA_DIR / "database.sqlite"!s}',
     },
     'apps': {
         'models': {
