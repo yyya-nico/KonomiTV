@@ -12,6 +12,7 @@ import subprocess
 import tarfile
 import tempfile
 import urllib.parse
+import zipfile
 from pathlib import Path
 from rich import print
 from rich.padding import Padding
@@ -110,11 +111,11 @@ def Installer(version: str) -> None:
     if platform_type == 'Windows':
         table_02.add_row('なお、C:\\Users・C:\\Program Files 以下と、日本語(全角)が含まれるパス、')
         table_02.add_row('半角スペースを含むパスは不具合の原因となるため、避けてください。')
-        table_02.add_row('パスの入力例: C:\\DTV\\KonomiTV')
+        table_02.add_row('入力例: C:\\DTV\\KonomiTV')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
         table_02.add_row('なお、日本語(全角)が含まれるパス、半角スペースを含むパスは')
         table_02.add_row('不具合の原因となるため、避けてください。')
-        table_02.add_row('パスの入力例: /opt/KonomiTV')
+        table_02.add_row('入力例: /opt/KonomiTV')
     print(Padding(table_02, (1, 2, 1, 2)))
 
     # インストール先のフォルダを取得
@@ -389,35 +390,99 @@ def Installer(version: str) -> None:
             CustomPrompt.ask('利用するエンコーダー', default=default_encoder, choices=['FFmpeg', 'rkmppenc']),
         )
 
-    # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
+    # ***** 録画済み番組の保存先フォルダのパス *****
 
     table_06 = CreateTable()
-    table_06.add_column('06. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
-    table_06.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
-    table_06.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
+    table_06.add_column('06. 録画済み番組の保存先フォルダを入力してください。')
     if platform_type == 'Windows':
-        table_06.add_row('パスの入力例: E:\\TV-Capture')
+        table_06.add_row('入力例: E:\\TV-Record')
     elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
-        table_06.add_row('パスの入力例: /mnt/hdd/TV-Capture')
+        table_06.add_row('入力例: /mnt/hdd/TV-Record')
+    table_06.add_row('複数のフォルダを指定するには、パスを1つずつ入力してください。')
+    table_06.add_row('入力を終了する場合は、何も入力せずに Enter キーを押してください。')
     print(Padding(table_06, (1, 2, 1, 2)))
 
-    # キャプチャ画像の保存先フォルダのパスを取得
-    capture_upload_folder: Path
-    while True:
+    # 録画フォルダのリスト
+    recorded_folders: list[str] = []
 
+    # 録画フォルダを1つずつ入力
+    while True:
         # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
-        capture_upload_folder = Path(CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス'))
+        recorded_folder = CustomPrompt.ask('録画フォルダのパス')
+
+        # 何も入力されなかった場合は入力を終了
+        if recorded_folder == '':
+            # 1つも入力されていない場合は再度入力を促す
+            if len(recorded_folders) == 0:
+                print(Padding('[red]少なくとも1つの録画フォルダを指定してください。', (0, 2, 0, 2)))
+                continue
+            break
+
+        # 入力されたパスを Path オブジェクトに変換
+        recorded_folder_path = Path(recorded_folder)
 
         # バリデーション
-        if capture_upload_folder.is_absolute() is False:
-            print(Padding('[red]アップロードしたキャプチャ画像の保存先フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+        if recorded_folder_path.is_absolute() is False:
+            print(Padding('[red]録画フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
             continue
-        if capture_upload_folder.exists() is False:
-            print(Padding('[red]アップロードしたキャプチャ画像の保存先フォルダが存在しません。', (0, 2, 0, 2)))
+        if recorded_folder_path.exists() is False:
+            print(Padding('[red]指定された録画フォルダが存在しません。', (0, 2, 0, 2)))
+            continue
+        if recorded_folder_path.is_dir() is False:
+            print(Padding('[red]指定されたパスはフォルダではありません。', (0, 2, 0, 2)))
             continue
 
-        # すべてのバリデーションを通過したのでループを抜ける
-        break
+        # 現在指定されているフォルダの一覧を表示
+        recorded_folders.append(str(recorded_folder_path))
+        print(Padding(f'[green]現在指定されている録画フォルダ: {", ".join(recorded_folders)}', (0, 2, 0, 2)))
+
+    # ***** アップロードしたキャプチャ画像の保存先フォルダのパス *****
+
+    table_07 = CreateTable()
+    table_07.add_column('07. アップロードしたキャプチャ画像の保存先フォルダのパスを入力してください。')
+    table_07.add_row('クライアントの [キャプチャの保存先] 設定で [KonomiTV サーバーにアップロード] または')
+    table_07.add_row('[ブラウザでのダウンロードと、KonomiTV サーバーへのアップロードを両方行う] を選択したときに利用されます。')
+    if platform_type == 'Windows':
+        table_07.add_row('入力例: E:\\TV-Capture')
+    elif platform_type == 'Linux' or platform_type == 'Linux-Docker':
+        table_07.add_row('入力例: /mnt/hdd/TV-Capture')
+    table_07.add_row('複数のフォルダを指定するには、パスを1つずつ入力してください。')
+    table_07.add_row('入力を終了する場合は、何も入力せずに Enter キーを押してください。')
+    print(Padding(table_07, (1, 2, 1, 2)))
+
+    # キャプチャ画像の保存フォルダのリスト
+    capture_upload_folders: list[str] = []
+
+    # 録画フォルダを1つずつ入力
+    while True:
+        # 入力プロンプト (バリデーションに失敗し続ける限り何度でも表示される)
+        capture_upload_folder = CustomPrompt.ask('アップロードしたキャプチャ画像の保存先フォルダのパス')
+
+        # 何も入力されなかった場合は入力を終了
+        if capture_upload_folder == '':
+            # 1つも入力されていない場合は再度入力を促す
+            if len(capture_upload_folders) == 0:
+                print(Padding('[red]少なくとも1つのキャプチャ画像の保存先フォルダを指定してください。', (0, 2, 0, 2)))
+                continue
+            break
+
+        # 入力されたパスを Path オブジェクトに変換
+        capture_upload_folder_path = Path(capture_upload_folder)
+
+        # バリデーション
+        if capture_upload_folder_path.is_absolute() is False:
+            print(Padding('[red]キャプチャ画像の保存先フォルダは絶対パスで入力してください。', (0, 2, 0, 2)))
+            continue
+        if capture_upload_folder_path.exists() is False:
+            print(Padding('[red]指定されたキャプチャ画像の保存先フォルダが存在しません。', (0, 2, 0, 2)))
+            continue
+        if capture_upload_folder_path.is_dir() is False:
+            print(Padding('[red]指定されたパスはフォルダではありません。', (0, 2, 0, 2)))
+            continue
+
+        # 現在指定されているフォルダの一覧を表示
+        capture_upload_folders.append(str(capture_upload_folder_path))
+        print(Padding(f'[green]現在指定されているキャプチャ画像の保存先フォルダ: {", ".join(capture_upload_folders)}', (0, 2, 0, 2)))
 
     # ***** ソースコードのダウンロード *****
 
@@ -428,9 +493,11 @@ def Installer(version: str) -> None:
     if is_git_installed is True:
 
         # git clone でソースコードをダウンロード
+        ## latest の場合は master ブランチを、それ以外は指定されたバージョンのタグをチェックアウト
+        revision = 'master' if version == 'latest' else f'v{version}'
         result = RunSubprocess(
             'KonomiTV のソースコードを Git でダウンロードしています…',
-            ['git', 'clone', '-b', f'v{version}', 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
+            ['git', 'clone', '-b', revision, 'https://github.com/tsukumijima/KonomiTV.git', install_path.name],
             cwd = install_path.parent,
             error_message = 'KonomiTV のソースコードのダウンロード中に予期しないエラーが発生しました。',
             error_log_name = 'Git のエラーログ',
@@ -447,7 +514,11 @@ def Installer(version: str) -> None:
         progress = CreateDownloadInfiniteProgress()
 
         # GitHub からソースコードをダウンロード
-        source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/v{version}')
+        ## latest の場合は master ブランチを、それ以外は指定されたバージョンのタグをダウンロード
+        if version == 'latest':
+            source_code_response = requests.get('https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/heads/master')
+        else:
+            source_code_response = requests.get(f'https://codeload.github.com/tsukumijima/KonomiTV/zip/refs/tags/v{version}')
         task_id = progress.add_task('', total=None)
 
         # ダウンロードしたデータを随時一時ファイルに書き込む
@@ -462,7 +533,10 @@ def Installer(version: str) -> None:
 
         # ソースコードを解凍して展開
         shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
-        shutil.move(install_path.parent / f'KonomiTV-{version}/', install_path)
+        if version == 'latest':
+            shutil.move(install_path.parent / 'KonomiTV-master/', install_path)
+        else:
+            shutil.move(install_path.parent / f'KonomiTV-{version}/', install_path)
         Path(source_code_file.name).unlink()
 
     # ***** リッスンポートの重複チェック *****
@@ -517,8 +591,8 @@ def Installer(version: str) -> None:
             config_dict['general']['mirakurun_url'] = mirakurun_url
         config_dict['general']['encoder'] = encoder
         config_dict['server']['port'] = server_port
-        config_dict['video']['recorded_folders'] = []  # TODO: 本来はインストーラーで設定できるべき
-        config_dict['capture']['upload_folders'] = [str(capture_upload_folder)]
+        config_dict['video']['recorded_folders'] = recorded_folders
+        config_dict['capture']['upload_folders'] = capture_upload_folders
 
         # サーバー設定データを保存
         SaveConfig(install_path / 'config.yaml', config_dict)
@@ -536,39 +610,53 @@ def Installer(version: str) -> None:
         progress = CreateDownloadProgress()
 
         # GitHub からサードパーティーライブラリをダウンロード
-        thirdparty_file = 'thirdparty-windows.7z'
+        if version == 'latest':
+            thirdparty_base_url = 'https://nightly.link/tsukumijima/KonomiTV/workflows/build_thirdparty.yaml/master/'
+        else:
+            thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'
+        thirdparty_compressed_file_name = 'thirdparty-windows.7z'
         if platform_type == 'Linux' and is_arm_device is False:
-            thirdparty_file = 'thirdparty-linux.tar.xz'
+            thirdparty_compressed_file_name = 'thirdparty-linux.tar.xz'
         elif platform_type == 'Linux' and is_arm_device is True:
-            thirdparty_file = 'thirdparty-linux-arm.tar.xz'
-        thirdparty_base_url = f'https://github.com/tsukumijima/KonomiTV/releases/download/v{version}/'
-        thirdparty_url = thirdparty_base_url + thirdparty_file
+            thirdparty_compressed_file_name = 'thirdparty-linux-arm.tar.xz'
+        thirdparty_url = thirdparty_base_url + thirdparty_compressed_file_name
+        if version == 'latest':
+            thirdparty_url = thirdparty_url + '.zip'
         thirdparty_response = requests.get(thirdparty_url, stream=True)
         task_id = progress.add_task('', total=float(thirdparty_response.headers['Content-length']))
 
         # ダウンロードしたデータを随時一時ファイルに書き込む
-        thirdparty_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
+        thirdparty_compressed_file = tempfile.NamedTemporaryFile(mode='wb', delete=False)
         with progress:
             for chunk in thirdparty_response.iter_content(chunk_size=1048576):  # サイズが大きいので1MBごとに読み込み
-                thirdparty_file.write(chunk)
+                thirdparty_compressed_file.write(chunk)
                 progress.update(task_id, advance=len(chunk))
-        thirdparty_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
+        thirdparty_compressed_file.close()  # 解凍する前に close() してすべて書き込ませておくのが重要
 
         # サードパーティーライブラリを解凍して展開
         print(Padding('サードパーティーライブラリを展開しています… (数秒～数十秒かかります)', (1, 2, 0, 2)))
         progress = CreateBasicInfiniteProgress()
         progress.add_task('', total=None)
         with progress:
+
+            # latest のみ、圧縮ファイルがさらに zip で包まれているので、それを解凍
+            thirdparty_compressed_file_path = thirdparty_compressed_file.name
+            if version == 'latest':
+                with zipfile.ZipFile(thirdparty_compressed_file.name, mode='r') as zip_file:
+                    zip_file.extractall(install_path / 'server/')
+                thirdparty_compressed_file_path = install_path / 'server' / thirdparty_compressed_file_name
+                Path(thirdparty_compressed_file.name).unlink()
+
             if platform_type == 'Windows':
                 # Windows: 7-Zip 形式のアーカイブを解凍
-                with py7zr.SevenZipFile(thirdparty_file.name, mode='r') as seven_zip:
+                with py7zr.SevenZipFile(thirdparty_compressed_file_path, mode='r') as seven_zip:
                     seven_zip.extractall(install_path / 'server/')
             elif platform_type == 'Linux':
                 # Linux: tar.xz 形式のアーカイブを解凍
                 ## 7-Zip だと (おそらく) ファイルパーミッションを保持したまま圧縮することができない？ため、あえて tar.xz を使っている
-                with tarfile.open(thirdparty_file.name, mode='r:xz') as tar_xz:
+                with tarfile.open(thirdparty_compressed_file_path, mode='r:xz') as tar_xz:
                     tar_xz.extractall(install_path / 'server/')
-            Path(thirdparty_file.name).unlink()
+            Path(thirdparty_compressed_file_path).unlink()
             # server/thirdparty/.gitkeep が消えてたらもう一度作成しておく
             if Path(install_path / 'server/thirdparty/.gitkeep').exists() is False:
                 Path(install_path / 'server/thirdparty/.gitkeep').touch()
@@ -600,17 +688,6 @@ def Installer(version: str) -> None:
             cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
             environment = {'PYTHON_KEYRING_BACKEND': 'keyring.backends.null.Keyring'},  # Windows で SSH 接続時に発生するエラーを回避
             error_message = '依存パッケージのインストール中に予期しないエラーが発生しました。',
-        )
-        if result is False:
-            return  # 処理中断
-
-        # ***** データベースのアップグレード *****
-
-        result = RunSubprocess(
-            'データベースをアップグレードしています…',
-            [python_executable_path, '-m', 'poetry', 'run', 'aerich', 'upgrade'],
-            cwd = install_path / 'server/',  # カレントディレクトリを KonomiTV サーバーのベースディレクトリに設定
-            error_message = 'データベースのアップグレード中に予期しないエラーが発生しました。'
         )
         if result is False:
             return  # 処理中断
@@ -658,6 +735,7 @@ def Installer(version: str) -> None:
                     '    #     reservations:\n'
                     '    #       devices:\n'
                     '    #         - driver: nvidia\n'
+                    '    #           count: all\n'
                     '    #           capabilities: [compute, utility, video]'
                 )
                 # 置換後の config.yaml の記述
@@ -667,6 +745,7 @@ def Installer(version: str) -> None:
                     '        reservations:\n'
                     '          devices:\n'
                     '            - driver: nvidia\n'
+                    '              count: all\n'
                     '              capabilities: [compute, utility, video]'
                 )
                 text = text.replace(old_text, new_text)
@@ -928,33 +1007,33 @@ def Installer(version: str) -> None:
             text = True,  # 出力をテキストとして取得する
         ).stdout.strip()
 
-        table_07 = CreateTable()
-        table_07.add_column(f'07. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
-        table_07.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_07.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
-        table_07.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
-        print(Padding(table_07, (0, 2, 0, 2)))
+        table_08 = CreateTable()
+        table_08.add_column('08. KonomiTV の Windows サービスの実行ユーザー名を入力してください。')
+        table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+        table_08.add_row('ほかのユーザー権限で実行したい場合は、そのユーザー名を入力してください。')
+        table_08.add_row(f'Enter キーを押すと、現在ログオン中のユーザー ({current_user_name_default}) が利用されます。')
+        print(Padding(table_08, (0, 2, 0, 2)))
 
         # ユーザー名を入力
-        current_user_name: str = CustomPrompt.ask(f'KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
+        current_user_name: str = CustomPrompt.ask('KonomiTV の Windows サービスの実行ユーザー名', default=current_user_name_default)
 
-        table_08 = CreateTable()
-        table_08.add_column(f'08. ユーザー ({current_user_name}) のパスワードを入力してください。')
-        table_08.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
-        table_08.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
-        table_08.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
-        table_08.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
-        table_08.add_row('なお、PIN などのほかの認証方法には対応していません。')
-        table_08.add_row(CreateRule())
-        table_08.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
-        table_08.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
-        table_08.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
-        table_08.add_row(CreateRule())
-        table_08.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
-        table_08.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
-        table_08.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
-        table_08.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
-        print(Padding(table_08, (1, 2, 1, 2)))
+        table_09 = CreateTable()
+        table_09.add_column(f'09. ユーザー ({current_user_name}) のパスワードを入力してください。')
+        table_09.add_row('KonomiTV の Windows サービスを一般ユーザーの権限で起動するために利用します。')
+        table_09.add_row('入力されたパスワードがそれ以外の用途に利用されることはありません。')
+        table_09.add_row('間違ったパスワードを入力すると、KonomiTV が起動できなくなります。')
+        table_09.add_row('Enter キーを押す前に、正しいパスワードかどうか今一度確認してください。')
+        table_09.add_row('なお、PIN などのほかの認証方法には対応していません。')
+        table_09.add_row(CreateRule())
+        table_09.add_row('ログオン中のユーザーにパスワードを設定していない場合は、簡単なものでいいので')
+        table_09.add_row('何かパスワードを設定してから、その設定したパスワードを入力してください。')
+        table_09.add_row('なお、パスワードの設定後にインストーラーを起動し直す必要はありません。')
+        table_09.add_row(CreateRule())
+        table_09.add_row('ごく稀に、正しいパスワードを指定したのにログオンできない場合があります。')
+        table_09.add_row('その場合は、一度インストーラーを Ctrl+C で中断し、インストーラーの')
+        table_09.add_row('実行ファイルを Shift + 右クリック → [別のユーザーとして実行] から、')
+        table_09.add_row('ログオン中のユーザーとパスワードを指定して再度実行してみてください。')
+        print(Padding(table_09, (1, 2, 1, 2)))
 
         # ユーザーのパスワードを取得
         while True:

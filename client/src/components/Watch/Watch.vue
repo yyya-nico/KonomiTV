@@ -188,6 +188,28 @@ export default defineComponent({
     }
 }
 
+// 非フルスクリーン時
+.watch-container:not(.watch-container--fullscreen) {
+    .watch-player__dplayer.dplayer-mobile {
+        .dplayer-setting-box {
+            @include smartphone-vertical {
+                // スマホ縦画面かつ非フルスクリーン時のみ、設定パネルを画面下部にオーバーレイ配置
+                position: fixed;
+                left: 0px !important;
+                right: 0px !important;
+                bottom: env(safe-area-inset-bottom) !important;  // iPhone X 以降の Home Indicator の高さ分
+                width: 100% !important;
+                height: 100% !important;
+                background: rgb(var(--v-theme-background));
+                transform: translateY(40%) !important;
+                z-index: 100 !important;
+            }
+            &.dplayer-setting-box-open {
+                transform: translateY(0%) !important;
+            }
+        }
+    }
+}
 // フルスクリーン時
 .watch-container.watch-container--fullscreen {
     .watch-player__dplayer {
@@ -259,6 +281,9 @@ export default defineComponent({
         }
         &.dplayer-mobile .dplayer-notice {
             bottom: 71px !important;
+            @include smartphone-vertical {
+                bottom: 50px !important;
+            }
         }
     }
 }
@@ -267,18 +292,21 @@ export default defineComponent({
 .watch-container.watch-container--video.watch-container--fullscreen {
     .watch-player__dplayer {
         .dplayer-bar-wrap {
-            width: calc(100% - (18px * 2));
+            width: calc(100% - (18px * 2)) !important;
         }
         &.dplayer-mobile .dplayer-bar-wrap {
             width: calc(100% - (30px * 2));
+            @include tablet-horizontal {
+                width: calc(100% - (30px * 2)) !important;
+            }
             @include tablet-vertical {
-                width: calc(100% - (18px * 2));
+                width: calc(100% - (18px * 2)) !important;
             }
             @include smartphone-horizontal {
-                width: calc(100% - (18px * 2));
+                width: calc(100% - (18px * 2)) !important;
             }
             @include smartphone-vertical {
-                width: calc(100% - (18px * 2));
+                width: calc(100% - (18px * 2)) !important;
             }
         }
     }
@@ -296,6 +324,9 @@ export default defineComponent({
         color: rgb(var(--v-theme-text-darken-1));
         font-size: 24px;
         padding: 20px;
+        @include smartphone-vertical {
+            aspect-ratio: 16 / 9;
+        }
 
         &__close-button {
             padding: 12px 16px;
@@ -429,6 +460,9 @@ export default defineComponent({
         position: relative;
         width: 100%;
         cursor: none;
+        @include smartphone-vertical {
+            z-index: 5;  // スマホ縦画面のみ、シークバーのつまみを少しはみ出るように配置する
+        }
     }
 }
 

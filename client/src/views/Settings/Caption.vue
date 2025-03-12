@@ -3,7 +3,7 @@
     <SettingsBase>
         <h2 class="settings__heading">
             <a v-ripple class="settings__back-button" @click="$router.back()">
-                <Icon icon="fluent:arrow-left-12-filled" width="25px" />
+                <Icon icon="fluent:chevron-left-12-filled" width="27px" />
             </a>
             <Icon icon="fluent:subtitles-16-filled" width="25px" />
             <span class="ml-3">字幕</span>
@@ -100,7 +100,9 @@ export default defineComponent({
                 {title: 'ヒラギノTV丸ゴ', value: 'Hiragino TV Sans Rd S'},
                 {title: '新丸ゴ ARIB', value: 'TT-ShinMGo-regular'},
                 {title: 'Rounded M+ 1m for ARIB', value: 'Rounded M+ 1m for ARIB'},
+                {title: 'BIZ UDゴシック', value: 'BIZ UDGothic'},
                 {title: 'Noto Sans JP', value: 'Noto Sans JP'},
+                {title: '游ゴシック', value: 'Yu Gothic'},
                 {title: 'デフォルトのフォント', value: 'sans-serif'},
             ],
         };

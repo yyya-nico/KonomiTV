@@ -3,6 +3,7 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
+import anyio
 import aiofiles
 import aiohttp
 import asyncio
@@ -37,6 +38,10 @@ class LiveEncodingTask:
     # H.265 再生時のエンコード後のストリームの GOP 長 (秒)
     GOP_LENGTH_SECONDS_H265: ClassVar[float] = float(2)
 
+    # エンコードタスクの最大リトライ回数
+    ## この数を超えた場合はエンコードタスクを再起動しない（無限ループを避ける）
+    MAX_RETRY_COUNT: ClassVar[int] = 10  # 10回まで
+
     # チューナーから放送波 TS を読み取る際のタイムアウト (秒)
     TUNER_TS_READ_TIMEOUT: ClassVar[int] = 15
 
@@ -64,10 +69,6 @@ class LiveEncodingTask:
         # エンコードタスクのリトライ回数のカウント
         self._retry_count = 0
 
-        # エンコードタスクの最大リトライ回数
-        ## この数を超えた場合はエンコードタスクを再起動しない（無限ループを避ける）
-        self._max_retry_count = 5  # 5 回まで
-
 
     def isFullHDChannel(self, network_id: int, service_id: int) -> bool:
         """
@@ -86,13 +87,18 @@ class LiveEncodingTask:
         """
 
         # 地デジでフル HD 放送を行っているチャンネルのネットワーク ID と一致する
-        ## テレビ宮崎, あいテレビ, びわ湖放送, KBS京都, KNB北日本放送, とちぎテレビ, ABS秋田放送
-        if network_id in [31811, 31940, 32038, 32102, 32162, 32311, 32466]:
+        ## テレビ宮崎, あいテレビ, びわ湖放送, KNB北日本放送, とちぎテレビ, ABS秋田放送
+        if network_id in [31811, 31940, 32038, 32162, 32311, 32466]:
             return True
 
         # BS でフル HD 放送を行っているチャンネルのサービス ID と一致する
         ## NHK BSプレミアム・WOWOWプライム・WOWOWライブ・WOWOWシネマ・BS11
-        if network_id == 4 and service_id in [103, 191, 192, 193, 211]:
+        if network_id == 0x0004 and service_id in [103, 191, 192, 193, 211]:
+            return True
+
+        # BS4K・CS4K (放送終了) は 4K 放送なのでフル HD 扱いとする
+        # 現在の KonomiTV は 1920×1080 以上の解像度へのエンコードをサポートしていない
+        if network_id == 0x000B or network_id == 0x000C:
             return True
 
         return False
@@ -100,16 +106,16 @@ class LiveEncodingTask:
 
     def buildFFmpegOptions(self,
         quality: QUALITY_TYPES,
-        is_fullhd_channel: bool = False,
-        is_sphd_channel: bool = False,
+        channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
+        is_fullhd_channel: bool,
     ) -> list[str]:
         """
         FFmpeg に渡すオプションを組み立てる
 
         Args:
             quality (QUALITY_TYPES): 映像の品質
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルの種類
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
-            is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
             list[str]: FFmpeg に渡すオプションが連なる配列
@@ -120,7 +126,7 @@ class LiveEncodingTask:
 
         # 入力ストリームの解析時間
         analyzeduration = round(500000 + (self._retry_count * 200000))  # リトライ回数に応じて少し増やす
-        if is_sphd_channel is True:
+        if channel_type == 'SKY':
             # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
             ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
             analyzeduration += 200000
@@ -135,7 +141,7 @@ class LiveEncodingTask:
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになるが、減らしすぎると LL-HLS で音ズレしやすくなる
+        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになる
         ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
         max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta}K -threads auto')
@@ -169,14 +175,19 @@ class LiveEncodingTask:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
-        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
-        if QUALITY[quality].is_60fps is True:
-            options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
+        ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        if channel_type == "BS4K":
+            options.append(f'-vf scale={video_width}:{video_height}')
             options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
-        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
         else:
-            options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
-            options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
+            ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+            if QUALITY[quality].is_60fps is True:
+                options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
+            ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+            else:
+                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-r 30000/1001 -g {int(gop_length_second * 30)}')
 
         # 音声
         ## 音声が 5.1ch かどうかに関わらず、ステレオにダウンミックスする
@@ -218,7 +229,7 @@ class LiveEncodingTask:
 
         # フラグ
         ## 主に FFmpeg の起動を高速化するための設定
-        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになるが、減らしすぎると LL-HLS で音ズレしやすくなる
+        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになる
         ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
         max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 250000 -max_interleave_delta {max_interleave_delta}K -threads auto')
@@ -242,8 +253,8 @@ class LiveEncodingTask:
     def buildHWEncCOptions(self,
         quality: QUALITY_TYPES,
         encoder_type: Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc'],
-        is_fullhd_channel: bool = False,
-        is_sphd_channel: bool = False,
+        channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K'],
+        is_fullhd_channel: bool,
     ) -> list[str]:
         """
         QSVEncC・NVEncC・VCEEncC・rkmppenc (便宜上 HWEncC と総称) に渡すオプションを組み立てる
@@ -251,8 +262,8 @@ class LiveEncodingTask:
         Args:
             quality (QUALITY_TYPES): 映像の品質
             encoder_type (Literal['QSVEncC', 'NVEncC', 'VCEEncC', 'rkmppenc']): エンコーダー (QSVEncC or NVEncC or VCEEncC or rkmppenc)
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルの種類
             is_fullhd_channel (bool): フル HD 放送が実施されているチャンネルかどうか
-            is_sphd_channel (bool): スカパー！プレミアムサービスのチャンネルかどうか
 
         Returns:
             list[str]: HWEncC に渡すオプションが連なる配列
@@ -264,7 +275,7 @@ class LiveEncodingTask:
         # 入力ストリームの解析時間
         input_probesize = round(1000 + (self._retry_count * 500))  # リトライ回数に応じて少し増やす
         input_analyze = round(0.7 + (self._retry_count * 0.2), 1)  # リトライ回数に応じて少し増やす
-        if is_sphd_channel is True:
+        if channel_type == 'SKY':
             # スカパー！プレミアムサービスのチャンネルは入力ストリームの解析時間を長めにする (その方がうまくいく)
             ## ほかと違い H.264 コーデックが採用されていることが影響しているのかも
             input_probesize += 500
@@ -273,7 +284,9 @@ class LiveEncodingTask:
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        options.append(f'--input-format mpegts --fps 30000/1001 --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
+        ## BS4K では --fps を指定しない
+        input_fps = '' if channel_type == 'BS4K' else '--fps 30000/1001'
+        options.append(f'--input-format mpegts {input_fps} --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
@@ -288,7 +301,7 @@ class LiveEncodingTask:
 
         # フラグ
         ## 主に HWEncC の起動を高速化するための設定
-        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになるが、減らしすぎると LL-HLS で音ズレしやすくなる
+        ## max_interleave_delta: mux 時に影響するオプションで、増やしすぎると CM で詰まりがちになる
         ## リトライなしの場合は 500K (0.5秒) に設定し、リトライ回数に応じて 100K (0.1秒) ずつ増やす
         max_interleave_delta = round(500 + (self._retry_count * 100))
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:250000')
@@ -298,9 +311,9 @@ class LiveEncodingTask:
         ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
         if encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc':
             options.append('--disable-opencl')
-        ## NVEncC では NVML によるモニタリングを無効化することで初期化フェーズを高速化する
+        ## NVEncC では NVML によるモニタリングと DX11 を無効化することで初期化フェーズを高速化する
         if encoder_type == 'NVEncC':
-            options.append('--disable-nvml 1')
+            options.append('--disable-nvml 1 --disable-dx11')
 
         # 映像
         ## コーデック
@@ -343,7 +356,7 @@ class LiveEncodingTask:
             options.append('--profile main')
         else:
             options.append('--profile high')
-        options.append(f'--interlace tff --dar 16:9')
+        options.append('--dar 16:9')
 
         ## 最大 GOP 長 (秒)
         ## 30fps なら ×30 、 60fps なら ×60 された値が --gop-len で使われる
@@ -352,30 +365,36 @@ class LiveEncodingTask:
             ## H.265/HEVC では高圧縮化のため、最大 GOP 長を長くする
             gop_length_second = self.GOP_LENGTH_SECONDS_H265
 
-        ## インターレース解除 (60i → 60p (フレームレート: 60fps))
-        ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
-        ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
-        ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-yadif を使う
-        if QUALITY[quality].is_60fps is True:
-            if encoder_type == 'QSVEncC':
-                options.append('--vpp-deinterlace bob')
-            elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                options.append('--vpp-yadif mode=bob')
-            elif encoder_type == 'rkmppenc':
-                options.append('--vpp-deinterlace bob_i5')
+        ## BS4K は 60p (プログレッシブ) で放送されているので、インターレース解除を行わず 60fps でエンコードする
+        if channel_type == "BS4K":
             options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
-        ## インターレース解除 (60i → 30p (フレームレート: 30fps))
-        ## NVEncC の --vpp-deinterlace normal は GPU 機種次第では稀に解除漏れのジャギーが入るらしいので、代わりに --vpp-afs を使う
-        ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
-        ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
         else:
-            if encoder_type == 'QSVEncC':
-                options.append(f'--vpp-deinterlace normal')
-            elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
-                options.append(f'--vpp-afs preset=default')
-            elif encoder_type == 'rkmppenc':
-                options.append('--vpp-deinterlace normal_i5')
-            options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
+            ## インターレース映像として読み込む
+            options.append('--interlace tff')
+            ## インターレース解除 (60i → 60p (フレームレート: 60fps))
+            ## NVEncC の --vpp-deinterlace bob は品質が悪いので、代わりに --vpp-yadif を使う
+            ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
+            ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-yadif を使う
+            if QUALITY[quality].is_60fps is True:
+                if encoder_type == 'QSVEncC':
+                    options.append('--vpp-deinterlace bob')
+                elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    options.append('--vpp-yadif mode=bob')
+                elif encoder_type == 'rkmppenc':
+                    options.append('--vpp-deinterlace bob_i5')
+                options.append(f'--avsync vfr --gop-len {int(gop_length_second * 60)}')
+            ## インターレース解除 (60i → 30p (フレームレート: 30fps))
+            ## NVEncC の --vpp-deinterlace normal は GPU 機種次第では稀に解除漏れのジャギーが入るらしいので、代わりに --vpp-afs を使う
+            ## NVIDIA GPU は当然ながら Intel の内蔵 GPU よりも性能が高いので、GPU フィルタを使ってもパフォーマンスに問題はないと判断
+            ## VCEEncC では --vpp-deinterlace 自体が使えないので、代わりに --vpp-afs を使う
+            else:
+                if encoder_type == 'QSVEncC':
+                    options.append('--vpp-deinterlace normal')
+                elif encoder_type == 'NVEncC' or encoder_type == 'VCEEncC':
+                    options.append('--vpp-afs preset=default')
+                elif encoder_type == 'rkmppenc':
+                    options.append('--vpp-deinterlace normal_i5')
+                options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
@@ -401,14 +420,14 @@ class LiveEncodingTask:
         return result
 
 
-    async def acquireMirakurunTuner(self, channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']) -> bool:
+    async def acquireMirakurunTuner(self, channel_type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']) -> bool:
         """
         Mirakurun / mirakc で空きチューナーを確保できるまで待機する
         mirakc は空きチューナーがない場合に 404 を返すので (バグ？) 、それを避けるために予め空きチューナーがあるかどうかを確認する
         0.5 秒間待機しても空きチューナーがなければ False を返す (共聴できる場合もあるので、受信できないとは限らない)
 
         Args:
-            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'STARDIGIO']): チャンネルタイプ
+            channel_type (Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']): チャンネルタイプ
 
         Returns:
             bool: チューナーを確保できたかどうか
@@ -418,9 +437,13 @@ class LiveEncodingTask:
         BACKEND_TYPE: Literal['EDCB', 'Mirakurun'] = 'Mirakurun' if CONFIG.general.always_receive_tv_from_mirakurun is True else CONFIG.general.backend
         assert BACKEND_TYPE == 'Mirakurun', 'This method is only for Mirakurun backend.'
 
-        # Mirakurun / mirakc はチャンネルタイプが GR, BS, CS, SKY しかないので、CATV を CS に、STARDIGIO を SKY に変換する
-        channel_type = 'CS' if channel_type == 'CATV' else channel_type
-        channel_type = 'SKY' if channel_type == 'STARDIGIO' else channel_type
+        # Mirakurun / mirakc は通常チャンネルタイプが GR, BS, CS, SKY しかないので、
+        # フォールバックとして BS4K を BS に、CATV を CS に変換する
+        fallback_channel_type = channel_type
+        if channel_type == 'BS4K':
+            fallback_channel_type = 'BS'
+        elif channel_type == 'CATV':
+            fallback_channel_type = 'CS'
 
         mirakurun_or_mirakc = 'Mirakurun'
         async with HTTPX_CLIENT() as client:
@@ -441,10 +464,10 @@ class LiveEncodingTask:
                         mirakurun_or_mirakc = 'mirakc'
                     tuners = response.json()
                 except httpx.NetworkError:
-                    logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
+                    logging.error('Failed to get tuner statuses from Mirakurun / mirakc. (Network Error)')
                     return False
                 except httpx.TimeoutException:
-                    logging.error(f'Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
+                    logging.error('Failed to get tuner statuses from Mirakurun / mirakc. (Connection Timeout)')
                     return False
 
                 # 指定されたチャンネルタイプが受信可能なチューナーが1つでも利用可能であれば True を返す
@@ -453,12 +476,16 @@ class LiveEncodingTask:
                         logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}.')
                         logging.info(f'Tuner: {tuner["name"]} / Type: {channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
                         return True
+                    if tuner['isAvailable'] is True and tuner['isFree'] is True and fallback_channel_type in tuner['types']:
+                        logging.info(f'Acquired a tuner from {mirakurun_or_mirakc}. ({channel_type} -> {fallback_channel_type})')
+                        logging.info(f'Tuner: {tuner["name"]} / Type: {fallback_channel_type}) / Acquired in {round(time.time() - start_time, 2)} seconds')
+                        return True
 
                 await asyncio.sleep(0.1)
 
         # 空きチューナーは確保できなかったが、同じチャンネルが受信中であれば共聴することは可能なので warning に留める
         logging.warning(f'Failed to acquire a tuner from {mirakurun_or_mirakc}.')
-        logging.warning(f'If the same channel is being received, it can be shared with the same tuner.')
+        logging.warning('If the same channel is being received, it can be shared with the same tuner.')
         return False
 
 
@@ -579,7 +606,7 @@ class LiveEncodingTask:
             if channel.is_radiochannel is True:
                 encoder_options = self.buildFFmpegOptionsForRadio()
             else:
-                encoder_options = self.buildFFmpegOptions(self.live_stream.quality, is_fullhd_channel, channel.type == 'SKY')
+                encoder_options = self.buildFFmpegOptions(self.live_stream.quality, channel.type, is_fullhd_channel)
             logging.info(f'[Live: {self.live_stream.live_stream_id}] FFmpeg Commands:\nffmpeg {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
@@ -594,7 +621,7 @@ class LiveEncodingTask:
         else:
 
             # オプションを取得
-            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, is_fullhd_channel, channel.type == 'SKY')
+            encoder_options = self.buildHWEncCOptions(self.live_stream.quality, ENCODER_TYPE, channel.type, is_fullhd_channel)
             logging.info(f'[Live: {self.live_stream.live_stream_id}] {ENCODER_TYPE} Commands:\n{ENCODER_TYPE} {" ".join(encoder_options)}')
 
             # エンコーダープロセスを非同期で作成・実行
@@ -729,6 +756,11 @@ class LiveEncodingTask:
 
         # ***** チューナーからの出力の読み込み → tsreadex・エンコーダーへの書き込み *****
 
+        # 実行中のタスクへの参照を保持しておく
+        ## run() の実行が完了するまで、ガベージコレクタによりタスクが勝手に破棄されることを防ぐ
+        ## ref: https://docs.astral.sh/ruff/rules/asyncio-dangling-task/
+        background_tasks: set[asyncio.Task[None]] = set()
+
         # チューナーからの放送波 TS の最終読み取り時刻 (単調増加時間)
         ## 単に時刻を比較する用途でしか使わないので、time.monotonic() から取得した単調増加時間が入る
         ## Unix Time とかではないので注意
@@ -777,7 +809,7 @@ class LiveEncodingTask:
                         ## 放送波の tsreadex への書き込みを最優先で行うため、非同期タスクとして実行する
                         ## ここで tsreadex への書き込みがブロックされると放送波の受信ループが止まり、ライブストリームの異常終了に繋がりかねない
                         if self.live_stream.psi_data_archiver is not None:
-                            asyncio.create_task(self.live_stream.psi_data_archiver.pushTSPacketData(chunk))
+                            background_tasks.add(asyncio.create_task(self.live_stream.psi_data_archiver.pushTSPacketData(chunk)))
 
                     # 並列タスク処理中に何らかの例外が発生した
                     # BrokenPipeError・asyncio.TimeoutError などが想定されるが、何が発生するかわからないためすべての例外をキャッチする
@@ -811,7 +843,7 @@ class LiveEncodingTask:
                 response.close()
 
         # タスクを非同期で実行
-        asyncio.create_task(Reader())
+        background_tasks.add(asyncio.create_task(Reader()))
 
         # ***** tsreadex・エンコーダーからの出力の読み込み → ライブストリームへの書き込み *****
 
@@ -901,8 +933,8 @@ class LiveEncodingTask:
                     break
 
         # タスクを非同期で実行
-        asyncio.create_task(Writer())
-        asyncio.create_task(SubWriter())
+        background_tasks.add(asyncio.create_task(Writer()))
+        background_tasks.add(asyncio.create_task(SubWriter()))
 
         # ***** エンコーダーの状態監視 *****
 
@@ -919,7 +951,7 @@ class LiveEncodingTask:
             ## ref: https://note.nkmk.me/python-pathlib-name-suffix-parent/
             count = 1
             encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{self.live_stream.live_stream_id}.log'
-            while encoder_log_path.exists():
+            while await anyio.Path(str(encoder_log_path)).exists():
                 encoder_log_path = LOGS_DIR / f'KonomiTV-Encoder-{self.live_stream.live_stream_id}-{count}.log'
                 count += 1
 
@@ -1092,7 +1124,7 @@ class LiveEncodingTask:
                 await encoder_log.close()
 
         # タスクを非同期で実行
-        asyncio.create_task(EncoderObServer())
+        background_tasks.add(asyncio.create_task(EncoderObServer()))
 
         # ***** エンコードタスク全体の制御 *****
 
@@ -1157,7 +1189,7 @@ class LiveEncodingTask:
                     # Offline にしてエンコードタスクを停止する
                     ## mirakc はなぜかチューナー不足時に 503 ではなく 404 を返すことがある (バグ?)
                     if response.status == 503 or (response.status == 404 and mirakurun_or_mirakc == 'mirakc'):
-                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足しています。(E-12M)')
+                        self.live_stream.setStatus('Offline', 'チューナーの起動に失敗しました。空きチューナーが不足している可能性があります。(E-12M)')
                     elif response.status == 404:
                         self.live_stream.setStatus('Offline', f'現在このチャンネルは受信できません。{mirakurun_or_mirakc} 側に問題があるかもしれません。(HTTP Error {response.status}) (E-12M)')
                     else:
@@ -1295,16 +1327,16 @@ class LiveEncodingTask:
                 self.live_stream.tuner.unlock()
 
             # 再起動回数が最大再起動回数に達していなければ、再起動する
-            if self._retry_count < self._max_retry_count:
+            if self._retry_count < self.MAX_RETRY_COUNT:
                 self._retry_count += 1  # カウントを増やす
                 await asyncio.sleep(0.1)  # 少し待つ
-                asyncio.create_task(self.run())  # 新しいタスクを立ち上げる
+                background_tasks.add(asyncio.create_task(self.run()))  # 新しいタスクを立ち上げる
 
             # 最大再起動回数を使い果たしたので、Offline にする
             else:
 
                 # Offline に設定
-                if program_present is None or program_present.is_free == True:
+                if program_present is None or program_present.is_free is True:
                     # 無料番組
                     self.live_stream.setStatus('Offline', 'ライブストリームの再起動に失敗しました。(E-17)')
                 else:

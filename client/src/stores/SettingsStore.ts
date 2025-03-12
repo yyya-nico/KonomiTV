@@ -21,6 +21,17 @@ export interface ILocalClientSettings extends IClientSettings {
     showed_panel_last_time: boolean;
     selected_twitter_account_id: number | null;
     saved_twitter_hashtags: string[];
+    mylist: {
+        type: 'Series' | 'RecordedProgram';
+        id: number;
+        created_at: number;
+    }[];
+    watched_history: {
+        video_id: number;
+        last_playback_position: number;
+        created_at: number;
+        updated_at: number;
+    }[];
     lshaped_screen_crop_enabled: boolean;
     lshaped_screen_crop_zoom_level: number;
     lshaped_screen_crop_x_position: number;
@@ -30,6 +41,8 @@ export interface ILocalClientSettings extends IClientSettings {
     panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
     tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
     video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    show_player_background_image: boolean;
+    use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
@@ -93,6 +106,11 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     // 保存している Twitter のハッシュタグが入るリスト
     saved_twitter_hashtags: [],
 
+    // マイリストに追加したシリーズ・録画番組
+    mylist: [],
+    // 「ビデオをみる」の視聴履歴
+    watched_history: [],
+
     // ***** L字画面のクロップ設定 *****
 
     // L字画面のクロップを有効にする (Default: 無効)
@@ -116,6 +134,10 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tv_panel_active_tab: 'Program',
     // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
     video_panel_active_tab: 'RecordedProgram',
+    // プレイヤーの読み込み中に背景写真を表示する (Default: オン)
+    show_player_background_image: true,
+    // プレイヤー表示領域の背景色を完全な黒にする (Default: オフ)
+    use_pure_black_player_background: false,
     // チャンネル選局のキーボードショートカットを Alt or Option + 数字キー/テンキーに変更する (Default: オフ)
     tv_channel_selection_requires_alt_key: false,
 
@@ -229,11 +251,14 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
 };
 
 // 同期対象の設定データのキーのみを列挙した配列
-const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
+// 同期されない設定も把握性向上のため、コメントとして残す
+export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'last_synced_at',
     // showed_panel_last_time: 同期無効
     // selected_twitter_account_id: 同期無効
     'saved_twitter_hashtags',
+    'mylist',
+    'watched_history',
     // lshaped_screen_crop_enabled: 同期無効
     // lshaped_screen_crop_zoom_level: 同期無効
     // lshaped_screen_crop_x_position: 同期無効
@@ -243,6 +268,8 @@ const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     'panel_display_state',
     'tv_panel_active_tab',
     'video_panel_active_tab',
+    'show_player_background_image',
+    'use_pure_black_player_background',
     'tv_channel_selection_requires_alt_key',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効

@@ -4,10 +4,10 @@ import { IProgram, IProgramDefault } from '@/services/Programs';
 
 
 /** チャンネルタイプの型 */
-export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'STARDIGIO';
+export type ChannelType = 'GR' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'BS4K';
 
 // チャンネルタイプの型 (実際のチャンネルリストに表示される表現)
-export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'StarDigio';
+export type ChannelTypePretty = 'ピン留め' | '地デジ' | 'BS' | 'CS' | 'CATV' | 'SKY' | 'BS4K';
 
 /** チャンネル情報を表すインターフェイス */
 export interface IChannel {
@@ -63,7 +63,7 @@ export interface ILiveChannelsList {
     CS: ILiveChannel[];
     CATV: ILiveChannel[];
     SKY: ILiveChannel[];
-    STARDIGIO: ILiveChannel[];
+    BS4K: ILiveChannel[];
 }
 
 /** ニコニコ実況の WebSocket API の情報を表すインターフェイス */
@@ -82,7 +82,7 @@ class Channels {
      * すべてのチャンネルの情報を取得する
      * @return すべてのチャンネルの情報
      */
-    static async fetchAll(): Promise<ILiveChannelsList | null> {
+    static async fetchAllChannels(): Promise<ILiveChannelsList | null> {
 
         // API リクエストを実行
         const response = await APIClient.get<ILiveChannelsList>('/channels');

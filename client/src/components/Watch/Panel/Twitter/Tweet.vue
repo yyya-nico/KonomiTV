@@ -103,6 +103,10 @@ const formattedText = computed(() => formatText(displayedTweet.value.text));
 const formattedQuotedText = computed(() => displayedTweet.value.quoted_tweet ? formatText(displayedTweet.value.quoted_tweet.text) : '');
 
 const handleTweetClick = (event: MouseEvent) => {
+    // テキストが選択されている場合は、クリックイベントを無視する
+    if (window.getSelection()?.toString()) {
+        return;
+    }
     // Check if the clicked element or its parent is a link or a button
     const isClickableElement = (event.target as HTMLElement).closest('a, button, video');
     if (!isClickableElement) {
@@ -159,6 +163,12 @@ const handleFavorite = async () => {
     line-height: 1.45;
     transition: background-color 0.15s ease;
     cursor: pointer;
+    @include smartphone-horizontal {
+        font-size: 11.5px;
+    }
+    @include smartphone-vertical {
+        font-size: 12px;
+    }
 
     &:hover {
         background-color: rgba(var(--v-theme-on-surface), 0.04);
@@ -266,7 +276,8 @@ const handleFavorite = async () => {
     &__text {
         margin-bottom: 6px;
         white-space: pre-wrap;
-        word-break: break-all;
+        word-break: break-word;
+        user-select: text;
     }
 
     &__images {
@@ -339,7 +350,7 @@ const handleFavorite = async () => {
         -webkit-line-clamp: 3;  // 3行までに制限
         -webkit-box-orient: vertical;
         overflow: hidden;
-        word-break: break-all;
+        word-break: break-word;
     }
 
     &__actions {

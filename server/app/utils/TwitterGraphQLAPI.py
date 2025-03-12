@@ -4,7 +4,6 @@ import httpx
 import json
 import re
 import time
-import traceback
 from bs4 import BeautifulSoup
 from datetime import datetime
 from typing import Any, cast, ClassVar, Literal, TypedDict
@@ -35,14 +34,16 @@ class TwitterGraphQLAPI:
     ## リクエストペイロードのうち "features" 内に入っている機能フラグ (？) も数週間単位で頻繁に変更されうるが、Twitter Web App と
     ## 完全に一致していないからといって必ずしも動かなくなるわけではなく、クエリ ID 同様にある程度は古い値でも動くようになっているらしい
     ## 以下のコードはエンドポイントごとに poetry run python -m misc.TwitterAPIQueryGenerator を実行して半自動生成できる
-    ENDPOINT_INFOS: dict[str, schemas.TwitterGraphQLAPIEndpointInfo] = {
+    ENDPOINT_INFOS: ClassVar[dict[str, schemas.TwitterGraphQLAPIEndpointInfo]] = {
         'CreateTweet': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'POST',
-            query_id = 'xT36w0XM3A8jDynpkram2A',
+            query_id = 'qc4OW1w4zjtXm-oxpdzgDg',
             endpoint = 'CreateTweet',
             features = {
+                'premium_content_api_read_enabled': False,
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'responsive_web_grok_analyze_button_fetch_trends_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
                 'view_counts_everywhere_api_enabled': True,
@@ -52,15 +53,16 @@ class TwitterGraphQLAPI:
                 'creator_subscriptions_quote_tweet_preview_enabled': False,
                 'longform_notetweets_rich_text_read_enabled': True,
                 'longform_notetweets_inline_media_enabled': True,
-                'articles_preview_enabled': True,
-                'rweb_video_timestamps_enabled': True,
+                'profile_label_improvements_pcf_label_in_post_enabled': False,
                 'rweb_tipjar_consumption_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
+                'articles_preview_enabled': True,
+                'rweb_video_timestamps_enabled': True,
+                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
                 'freedom_of_speech_not_reach_fetch_enabled': True,
                 'standardized_nudges_misinfo': True,
                 'tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled': True,
-                'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_enhance_cards_enabled': False,
             },
@@ -91,17 +93,20 @@ class TwitterGraphQLAPI:
         ),
         'HomeLatestTimeline': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'POST',
-            query_id = 'DiTkXJgLqBBxCs7zaYsbtA',
+            query_id = 'UfVanvi6BR1qWBYfN-VXIw',
             endpoint = 'HomeLatestTimeline',
             features = {
+                'profile_label_improvements_pcf_label_in_post_enabled': False,
                 'rweb_tipjar_consumption_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'creator_subscriptions_tweet_preview_api_enabled': True,
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'premium_content_api_read_enabled': False,
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'responsive_web_grok_analyze_button_fetch_trends_enabled': True,
                 'articles_preview_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
@@ -121,17 +126,20 @@ class TwitterGraphQLAPI:
         ),
         'SearchTimeline': schemas.TwitterGraphQLAPIEndpointInfo(
             method = 'GET',
-            query_id = 'UN1i3zUiCWa-6r-Uaho4fw',
+            query_id = 'fnkladLRj_7bB0PwaOtymA',
             endpoint = 'SearchTimeline',
             features = {
+                'profile_label_improvements_pcf_label_in_post_enabled': False,
                 'rweb_tipjar_consumption_enabled': True,
                 'responsive_web_graphql_exclude_directive_enabled': True,
                 'verified_phone_label_enabled': False,
                 'creator_subscriptions_tweet_preview_api_enabled': True,
                 'responsive_web_graphql_timeline_navigation_enabled': True,
                 'responsive_web_graphql_skip_user_profile_image_extensions_enabled': False,
+                'premium_content_api_read_enabled': False,
                 'communities_web_enable_tweet_community_results_fetch': True,
                 'c9s_tweet_anatomy_moderator_badge_enabled': True,
+                'responsive_web_grok_analyze_button_fetch_trends_enabled': True,
                 'articles_preview_enabled': True,
                 'responsive_web_edit_tweet_api_enabled': True,
                 'graphql_is_translatable_rweb_tweet_is_translatable_enabled': True,
@@ -154,7 +162,7 @@ class TwitterGraphQLAPI:
     # Twitter API のエラーコードとエラーメッセージの対応表
     ## 実際に返ってくる可能性があるものだけ
     ## ref: https://developer.twitter.com/ja/docs/basics/response-codes
-    ERROR_MESSAGES = {
+    ERROR_MESSAGES: ClassVar[dict[int, str]] = {
         32:  'Twitter アカウントの認証に失敗しました。もう一度連携し直してください。',
         63:  'Twitter アカウントが凍結またはロックされています。',
         64:  'Twitter アカウントが凍結またはロックされています。',
@@ -205,7 +213,7 @@ class TwitterGraphQLAPI:
         # Chrome への偽装用 HTTP リクエストヘッダーを取得
         ## User-Agent ヘッダーも Chrome に偽装されている
         self.cookie_session_user_handler = self.twitter_account.getTweepyAuthHandler()
-        self.graphql_headers_dict = self.cookie_session_user_handler.get_graphql_api_headers()  # GraphQL API 用ヘッダー
+        self.graphql_headers_dict = cast(dict[str, str], self.cookie_session_user_handler.get_graphql_api_headers())  # GraphQL API 用ヘッダー
         self.html_headers_dict = self.cookie_session_user_handler.get_html_headers()  # HTML 用ヘッダー
         self.js_headers_dict = self.cookie_session_user_handler.get_js_headers(cross_origin=True)  # JavaScript 用ヘッダー
 
@@ -280,6 +288,10 @@ class TwitterGraphQLAPI:
                     for switch in feature_switches:
                         if switch in feature_switch:
                             features[switch] = feature_switch[switch]['value'] == 'true'
+                        else:
+                            # ごく稀に featureSwitch にデフォルト値が書かれていない場合があるので、
+                            # その場合は true をデフォルト値とする
+                            features[switch] = True
                     if not features:
                         features = None
 
@@ -300,9 +312,8 @@ class TwitterGraphQLAPI:
                                              f'[{cls.ENDPOINT_INFOS[operation_name].method}] {cls.ENDPOINT_INFOS[operation_name].path}')
 
             logging.info(f'Twitter GraphQL API endpoint infos update complete. ({round(time.time() - start_time, 3)} sec)')
-        except Exception:
-            logging.error('Failed to update Twitter GraphQL API endpoint infos:')
-            logging.error(traceback.format_exc())
+        except Exception as ex:
+            logging.error('Failed to update Twitter GraphQL API endpoint infos:', exc_info=ex)
 
 
     async def persistCookies(self) -> None:
@@ -364,7 +375,7 @@ class TwitterGraphQLAPI:
         # HTML の meta タグに含まれる検証コードを取得
         meta_tag = soup.select_one('meta[name="twitter-site-verification"]')
         if meta_tag is None:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch verification code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML から検証コードを取得できませんでした。',
@@ -374,7 +385,7 @@ class TwitterGraphQLAPI:
         # HTML からチャレンジコードを取得
         challenge_code_match = re.search(r'"ondemand.s":"(\w+)"', twitter_web_app_html_text)
         if not challenge_code_match:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'Challenge 情報の取得に失敗しました。Twitter Web App の HTML からチャレンジコードを取得できませんでした。',
@@ -391,7 +402,7 @@ class TwitterGraphQLAPI:
             headers = self.js_headers_dict,
         )
         if challenge_js_code_response.status_code != 200:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch challenge code from Twitter Web App HTML')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = (
@@ -513,7 +524,8 @@ class TwitterGraphQLAPI:
 
         # HTTP ステータスコードが 200 系以外の場合
         if not (200 <= response.status_code < 300):
-            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP {response.status_code})')
+            logging.error(f'[TwitterGraphQLAPI] Failed to invoke GraphQL API (HTTP Error {response.status_code})')
+            logging.error(f'[TwitterGraphQLAPI] Response: {response.text}')
             return error_message_prefix + f'Twitter API から HTTP {response.status_code} エラーが返されました。'
 
         # JSON でないレスポンスが返ってきた場合
@@ -864,7 +876,11 @@ class TwitterGraphQLAPI:
             ## なぜかリツイートと異なり legacy 以下ではなく直下に入っている
             quoted_tweet = None
             if 'quoted_status_result' in raw_tweet_object:
-                quoted_tweet = format_tweet(raw_tweet_object['quoted_status_result']['result'])
+                if 'result' not in raw_tweet_object['quoted_status_result']:
+                    # ごく稀に quoted_status_result.result が空のツイート情報が返ってくるので、その場合は警告を出した上で無視する
+                    logging.warning(f'[TwitterGraphQLAPI] Quoted tweet not found: {raw_tweet_object.get("rest_id", "unknown")}')
+                else:
+                    quoted_tweet = format_tweet(raw_tweet_object['quoted_status_result']['result'])
 
             # 画像の URL を取得
             image_urls = []
@@ -996,7 +1012,7 @@ class TwitterGraphQLAPI:
         next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
         previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
-            logging.error(f'[TwitterGraphQLAPI] Failed to fetch timeline: Cursor ID not found')
+            logging.error('[TwitterGraphQLAPI] Failed to fetch timeline: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'タイムラインの取得に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',
@@ -1066,7 +1082,7 @@ class TwitterGraphQLAPI:
         next_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Top')  # 現在よりも新しいツイートを取得するためのカーソル ID
         previous_cursor_id = self.__getCursorIDFromTimelineAPIResponse(response, 'Bottom')  # 現在よりも過去のツイートを取得するためのカーソル ID
         if next_cursor_id is None or previous_cursor_id is None:
-            logging.error(f'[TwitterGraphQLAPI] Failed to search tweets: Cursor ID not found')
+            logging.error('[TwitterGraphQLAPI] Failed to search tweets: Cursor ID not found')
             return schemas.TwitterAPIResult(
                 is_success = False,
                 detail = 'ツイートの検索に失敗しました。カーソル ID を取得できませんでした。開発者に修正を依頼してください。',

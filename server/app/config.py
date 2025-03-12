@@ -41,6 +41,8 @@ class ClientSettings(BaseModel):
     # showed_panel_last_time: 同期無効
     # selected_twitter_account_id: 同期無効
     saved_twitter_hashtags: list[str] = []
+    mylist: list[dict[str, Any]] = []
+    watched_history: list[dict[str, Any]] = []
     # lshaped_screen_crop_enabled: 同期無効
     # lshaped_screen_crop_zoom_level: 同期無効
     # lshaped_screen_crop_x_position: 同期無効
@@ -50,6 +52,8 @@ class ClientSettings(BaseModel):
     panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = 'RestorePreviousState'
     tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = 'Program'
     video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = 'RecordedProgram'
+    show_player_background_image: bool = True
+    use_pure_black_player_background: bool = False
     tv_channel_selection_requires_alt_key: bool = False
     # tv_streaming_quality: 同期無効
     # tv_streaming_quality_cellular: 同期無効
@@ -399,7 +403,7 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
             sys.exit(1)
     else:
         _CONFIG = ServerSettings.model_validate(config_dict, context={'bypass_validation': True})
-        logging.debug_simple('Server settings loaded (bypassed validation).')
+        # logging.debug_simple('Server settings loaded (bypassed validation).')
 
     return _CONFIG
 
