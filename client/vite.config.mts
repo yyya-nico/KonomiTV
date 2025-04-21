@@ -26,6 +26,7 @@ export default defineConfig({
             input: {
                 top: resolve(__dirname, 'index.html'),
                 wholech: resolve(__dirname, 'wholech/index.html'),
+                pastepg: resolve(__dirname, 'pastepg/index.html'),
             },
             output: {
                 assetFileNames: (assetInfo) => {
@@ -129,7 +130,7 @@ export default defineConfig({
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
                 // index.htmlを返さないパス
-                navigateFallbackDenylist: [/^\/konomitv\/wholech/],
+                navigateFallbackDenylist: [/^\/konomitv\/wholech/, /^\/konomitv\/pastepg/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }
