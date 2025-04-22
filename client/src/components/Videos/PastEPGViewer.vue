@@ -350,9 +350,10 @@ const getClassName = (program: IRecordedProgram) => {
 
         .time-label {
             position: sticky;
-            top: var(--channel-height);
+            top: calc(65px + var(--channel-height));
             overflow: hidden;
             height: var(--time-height-1hour);
+            border-top: 1px solid rgb(var(--v-theme-background-lighten-1));
             background-color: rgb(var(--v-theme-background-lighten-2));
             line-height: 2;
             text-align: center;
@@ -373,10 +374,10 @@ const getClassName = (program: IRecordedProgram) => {
             text-decoration: none;
 
             &.genre_none{
-                background-color: rgb(var(--v-theme-background-lighten-2));
+                background-color: #484040;
 
                 &:hover{
-                    background-color: rgb(var(--v-theme-background-lighten-3));
+                    background-color: #574f4f;
                 }
             }
 
