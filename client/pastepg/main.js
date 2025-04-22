@@ -80,8 +80,7 @@ import Utils from '@/utils';
         programAnchor.style.gridColumn = channelIndex + 1;
         programAnchor.style.gridRowStart = Math.floor((new Date(program.start_time) - startTime) / (60 * 1000)) + 1;
         programAnchor.style.gridRowEnd = `span ${Math.ceil(program.duration / 60)}`;
-        programAnchor.href = `https://yyya-nico.co/konomitv/videos/watch/${program.id}`;
-        programAnchor.target = '_blank';
+        programAnchor.href = `/konomitv/videos/watch/${program.id}`;
         programAnchor.title = program.title;
         programAnchor.innerHTML = `
             <div class="start-time">${startTimeMinutesString}</div>
