@@ -8,6 +8,16 @@
                 <span class="past-epg-viewer__title-text">{{title}}</span>
             </h2>
         </div>
+        <div class="past-epg-viewer__pagination" v-if="!hidePagination && displayTotal > 0">
+            <v-pagination
+                v-model="current_page"
+                active-color="primary"
+                density="comfortable"
+                :length="Math.ceil(displayTotal / 90)"
+                :total-visible="7"
+                @update:model-value="$emit('update:page', $event)">
+            </v-pagination>
+        </div>
         <div class="past-epg-viewer__grid"
             :class="{
                 'past-epg-viewer__grid--loading': isLoading,
@@ -69,7 +79,9 @@ const props = withDefaults(defineProps<{
     title: string;
     programs: IRecordedProgram[];
     total: number;
+    page?: number;
     hideHeader?: boolean;
+    hidePagination?: boolean;
     showBackButton?: boolean;
     showEmptyMessage?: boolean;
     emptyIcon?: string;
@@ -77,6 +89,7 @@ const props = withDefaults(defineProps<{
     emptySubMessage?: string;
     isLoading?: boolean;
 }>(), {
+    page: 1,
     hideHeader: false,
     hideSort: false,
     hidePagination: false,
@@ -92,10 +105,23 @@ const props = withDefaults(defineProps<{
     forWatchedHistory: false,
 });
 
+// Emits
+defineEmits<{
+    (e: 'update:page', page: number): void;
+}>();
+
+// 現在のページ番号
+const current_page = ref(props.page);
+
 // 内部で管理するプログラムリスト
 const displayPrograms = ref<IRecordedProgram[]>([...props.programs]);
 // 内部で管理する合計数
 const displayTotal = ref<number>(props.total);
+
+// props の page が変更されたら current_page を更新
+watch(() => props.page, (newPage) => {
+    current_page.value = newPage;
+});
 
 // props の programs が変更されたら displayPrograms を更新
 watch(() => props.programs, (newPrograms) => {
@@ -225,6 +251,15 @@ const getClassName = (program: IRecordedProgram) => {
             &:not(:last-child) > .recorded-program__container {
                 border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
             }
+        }
+    }
+
+    &__pagination {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 24px;
+        @include smartphone-vertical {
+            margin-bottom: 20px;
         }
     }
 
