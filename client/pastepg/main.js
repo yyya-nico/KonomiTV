@@ -41,11 +41,11 @@ import Utils from '@/utils';
         timeLabels.push(new Date(time));
     }
 
-    timeLabels.forEach(time => {
+    timeLabels.forEach((time, i) => {
         const timeDiv = document.createElement('div');
         timeDiv.className = 'time-label';
-        if (time.getHours() === 0) {
-            timeDiv.innerText = `${time.toLocaleString([], { month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric' })}`;
+        if (time.getHours() === 0 || i === 0) {
+            timeDiv.textContent = time.toLocaleString([], { month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric' });
         } else {
             timeDiv.textContent = time.toLocaleTimeString([], { hour: 'numeric' });
         }
