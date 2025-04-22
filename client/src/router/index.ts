@@ -66,6 +66,11 @@ const router = createRouter({
             component: () => import('@/views/Videos/Watch.vue'),
         },
         {
+            path: '/pastepg/',
+            name: 'Past EPG',
+            component: () => import('@/views/PastEPG.vue'),
+        },
+        {
             path: '/mylist/',
             name: 'Mylist',
             component: () => import('@/views/Mylist.vue'),

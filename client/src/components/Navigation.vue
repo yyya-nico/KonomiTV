@@ -18,6 +18,11 @@
                         <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                         <span class="navigation__link-text">番組表</span>
                     </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/pastepg/"
+                        :class="{'navigation__link--active': $route.path.startsWith('/pastepg')}">
+                        <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
+                        <span class="navigation__link-text">過去番組表</span>
+                    </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/reserves/"
                         :class="{'navigation__link--active': $route.path.startsWith('/reserves')}">
                         <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
