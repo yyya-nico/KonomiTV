@@ -50,6 +50,7 @@
                 </div>
                 <div id="schedule">
                     <router-link v-ripple class="program" v-for="program in displayPrograms" :key="program.id"
+                        title="{{ program.title }}"
                         :class="['program', getClassName(program)]"
                         :style="{
                             gridColumn: channels.indexOf(program.channel?.name) + 1,
