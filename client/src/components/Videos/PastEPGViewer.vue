@@ -513,10 +513,10 @@ const getClassName = (program: IRecordedProgram) => {
             }
 
             .program-start-time {
-                width: 20px;
-                height: 20px;
+                width: 1.6em;
+                height: 1.6em;
                 font-size: 0.9em;
-                line-height: 20px;
+                line-height: 1.6em;
                 background-color: rgb(var(--v-theme-background-lighten-1));
                 float: left;
                 text-align: center;
