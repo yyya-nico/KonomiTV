@@ -58,8 +58,13 @@
                             gridRowEnd: `span ${Math.ceil(program.duration / 60)}`
                         }"
                         :to="program.recorded_video.status === 'Recording' || !program.recorded_video.has_key_frames ? { path: '' } : `/videos/watch/${program.id}`">
-                        <div class="start-time">{{ new Date(program.start_time).getMinutes().toString().padStart(2, '0') }}</div>
-                        {{ program.title }}
+                        <div class="program-title">
+                            <div class="program-start-time">{{ new Date(program.start_time).getMinutes().toString().padStart(2, '0') }}</div>
+                            {{ program.title }}
+                        </div>
+                        <div class="program-description">
+                            {{ program.description }}
+                        </div>
                     </router-link>
                 </div>
             </div>
@@ -503,14 +508,24 @@ const getClassName = (program: IRecordedProgram) => {
                 }
             }
 
-            .start-time {
+            .program-title {
+                font-size: 0.9em;
+            }
+
+            .program-start-time {
                 width: 20px;
                 height: 20px;
-                font-size: .8em;
+                font-size: 0.9em;
                 line-height: 20px;
                 background-color: rgb(var(--v-theme-background-lighten-1));
                 float: left;
                 text-align: center;
+            }
+
+            .program-description {
+                font-size: 0.8em;
+                padding: 2px 4px;
+                color: rgb(var(--v-theme-text-darken-2));
             }
         }
     }
