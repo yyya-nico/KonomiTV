@@ -226,10 +226,22 @@ const getClassName = (program: IRecordedProgram) => {
         display: flex;
         flex-direction: column;
         position: relative;
-        width: 100%;
-        background: rgb(var(--v-theme-background-lighten-1));
+        width: fit-content;
+        max-width: 100%;
+        --constant-height: 270px;
+        height: calc(100vh - var(--constant-height));
+        background-color: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
         overflow: clip;
+
+        @include smartphone-horizontal {
+            --constant-height: 195px;
+            font-size: 15px;
+        }
+        @include smartphone-vertical {
+            --constant-height: 215px;
+            font-size: 14px;
+        }
 
         &--loading {
             .past-epg-viewer__grid-content {
@@ -245,13 +257,6 @@ const getClassName = (program: IRecordedProgram) => {
         .past-epg-viewer__grid-content {
             height: 100%;
             transition: visibility 0.2s ease, opacity 0.2s ease;
-        }
-
-        :deep(.recorded-program) {
-            // 最後の項目以外の下にボーダーを追加
-            &:not(:last-child) > .recorded-program__container {
-                border-bottom: 1px solid rgb(var(--v-theme-background-lighten-2));
-            }
         }
     }
 
@@ -331,17 +336,37 @@ const getClassName = (program: IRecordedProgram) => {
         }
     }
 
-    --channel-width: 140px;
-    --channel-height: 30px;
-    --time-width: 50px;
+    --channel-width: 150px;
+    --channel-height: 34px;
+    --time-width: 70px;
     --time-height-1hour: calc(300px - 0.25px);
     --time-height-1minute: calc((var(--time-height-1hour) - 59px) / 60);
+
+    @include smartphone-horizontal {
+        --channel-width: 120px;
+        --channel-height: 28px;
+        --time-width: 50px;
+    }
+
+    @include smartphone-vertical {
+        --channel-width: 100px;
+        --channel-height: 24px;
+        --time-width: 50px;
+    }
 
     #epg-container {
         display: grid;
         grid-template-rows: var(--channel-height) 1fr;
         grid-template-columns: var(--time-width) 1fr;
         gap: 1px;
+        width: fit-content;
+        height: 100%;
+        max-width: 100%;
+        overflow: auto;
+
+        &::-webkit-scrollbar-track {
+            background: transparent;
+        }
     }
 
     #channels {
@@ -349,17 +374,17 @@ const getClassName = (program: IRecordedProgram) => {
         display: flex;
         gap: 1px;
         position: sticky;
-        top: 65px;
+        top: 0;
         z-index: 2;
-        box-shadow: 0 2px 8px rgb(var(--v-theme-background));
 
         .dummy,
         .channel-name {
             flex-shrink: 0;
             height: var(--channel-height);
-            background-color: rgb(var(--v-theme-background-lighten-2));
+            border-bottom: thin solid rgb(var(--v-theme-background-lighten-2));
             text-wrap: nowrap;
             overflow: hidden;
+            background-color: rgb(var(--v-theme-background-lighten-1));
         }
 
         .dummy {
@@ -370,8 +395,18 @@ const getClassName = (program: IRecordedProgram) => {
 
         .channel-name {
             width: var(--channel-width);
-            text-align: center;
             padding: 5px;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+
+            @include smartphone-horizontal {
+                padding: 3px;
+            }
+
+            @include smartphone-vertical {
+                padding: 3px;
+            }
         }
     }
 
@@ -386,13 +421,23 @@ const getClassName = (program: IRecordedProgram) => {
 
         .time-label {
             position: sticky;
-            top: calc(65px + var(--channel-height));
+            top: calc(var(--channel-height) + 1px);
             overflow: hidden;
             height: var(--time-height-1hour);
-            border-top: 1px solid rgb(var(--v-theme-background-lighten-1));
-            background-color: rgb(var(--v-theme-background-lighten-2));
-            line-height: 2;
+            padding: 5px;
+            border-top: thin solid rgb(var(--v-theme-background-lighten-2));
+            background-color: rgb(var(--v-theme-background-lighten-1));
+            font-size: 14px;
             text-align: center;
+
+            @include smartphone-horizontal {
+                font-size: 12px;
+            }
+
+            @include smartphone-vertical {
+                padding: 2px;
+                font-size: 10px;
+            }
         }
     }
 
@@ -402,6 +447,7 @@ const getClassName = (program: IRecordedProgram) => {
         grid-template-columns: repeat(auto-fill, var(--channel-width));
         gap: 1px;
         position: relative;
+        background-color: rgb(var(--v-theme-background-lighten-1));
 
         .program {
             overflow: hidden;

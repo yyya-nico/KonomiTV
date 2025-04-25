@@ -98,8 +98,13 @@ onMounted(async () => {
 .pastepg-container-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
+    --navigation-width: 220px;
+    width: calc(100% - var(--navigation-width));
+    @include smartphone-horizontal {
+        --navigation-width: 210px;
+    }
     @include smartphone-vertical {
+        width: 100%;
         padding-top: 10px !important;
     }
 }
@@ -108,10 +113,11 @@ onMounted(async () => {
     display: flex;
     flex-direction: column;
     width: fit-content;
+    max-width: 100%;
     height: 100%;
     padding: 20px;
     margin: 0 auto;
-    min-width: 1000px;
+    min-width: 0;
     @include smartphone-horizontal {
         padding: 16px 20px !important;
     }
