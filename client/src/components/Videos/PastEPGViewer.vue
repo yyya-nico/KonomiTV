@@ -157,8 +157,8 @@ const channels = computed(() => {
 // 時間ラベルを生成
 const timeLabels = computed(() => {
     if (displayPrograms.value.length === 0) return [];
-    const startTime = new Date(displayPrograms.value.reduce((a, b) => new Date(a.start_time) < new Date(b.start_time) ? a : b).start_time);
-    const endTime = new Date(displayPrograms.value.reduce((a, b) => new Date(a.end_time) > new Date(b.end_time) ? a : b).end_time);
+    const startTime = displayPrograms.value.map(program => new Date(program.start_time)).reduce((a, b) => a < b ? a : b);
+    const endTime = displayPrograms.value.map(program => new Date(program.end_time)).reduce((a, b) => a > b ? a : b);
     const labels: Date[] = [];
     for (let time = new Date(startTime.setMinutes(0, 0, 0)); time <= endTime; time.setHours(time.getHours() + 1)) {
         labels.push(new Date(time));
