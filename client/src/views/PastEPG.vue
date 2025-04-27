@@ -40,7 +40,7 @@ const router = useRouter();
 
 // 録画番組のリスト
 const programs = ref<IRecordedProgram[]>([]);
-const total_programs = ref(Infinity);
+const total_programs = ref(0);
 const is_loading = ref(true);
 
 // 現在のページ番号

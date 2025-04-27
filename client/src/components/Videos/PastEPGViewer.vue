@@ -34,38 +34,40 @@
                         v-if="emptySubMessage" v-html="emptySubMessage"></div>
                 </div>
             </div>
-            <div id="epg-container">
-                <div id="channels">
-                    <div class="dummy"></div>
-                    <div v-for="channel in channels" :key="channel" class="channel-name">
-                        {{ channel }}
-                    </div>
-                </div>
-                <div id="times">
-                    <div v-for="(time, i) in timeLabels" :key="i" class="time-label">
-                        {{ time.getHours() === 0 || i === 0
-                            ? time.toLocaleString([], { month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric' })
-                            : time.toLocaleTimeString([], { hour: 'numeric' }) }}
-                    </div>
-                </div>
-                <div id="schedule">
-                    <router-link v-ripple class="program" v-for="program in displayPrograms" :key="program.id"
-                        :title="program.title"
-                        :class="['program', getClassName(program)]"
-                        :style="{
-                            gridColumn: channels.indexOf(program.channel?.name) + 1,
-                            gridRowStart: Math.floor((new Date(program.start_time).getTime() - new Date(timeLabels[0]).getTime()) / (60 * 1000)) + 1,
-                            gridRowEnd: `span ${Math.ceil(program.duration / 60)}`
-                        }"
-                        :to="program.recorded_video.status === 'Recording' || !program.recorded_video.has_key_frames ? { path: '' } : `/videos/watch/${program.id}`">
-                        <div class="program-title">
-                            <div class="program-start-time">{{ new Date(program.start_time).getMinutes().toString().padStart(2, '0') }}</div>
-                            {{ program.title }}
+            <div class="past-epg-viewer__grid-content">
+                <div id="epg-container">
+                    <div id="channels">
+                        <div class="dummy"></div>
+                        <div v-for="channel in channels" :key="channel" class="channel-name">
+                            {{ channel }}
                         </div>
-                        <div class="program-description">
-                            {{ program.description }}
+                    </div>
+                    <div id="times">
+                        <div v-for="(time, i) in timeLabels" :key="i" class="time-label">
+                            {{ time.getHours() === 0 || i === 0
+                                ? time.toLocaleString([], { month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric' })
+                                : time.toLocaleTimeString([], { hour: 'numeric' }) }}
                         </div>
-                    </router-link>
+                    </div>
+                    <div id="schedule">
+                        <router-link v-ripple class="program" v-for="program in displayPrograms" :key="program.id"
+                            :title="program.title"
+                            :class="['program', getClassName(program)]"
+                            :style="{
+                                gridColumn: channels.indexOf(program.channel?.name) + 1,
+                                gridRowStart: Math.floor((new Date(program.start_time).getTime() - new Date(timeLabels[0]).getTime()) / (60 * 1000)) + 1,
+                                gridRowEnd: `span ${Math.ceil(program.duration / 60)}`
+                            }"
+                            :to="program.recorded_video.status === 'Recording' || !program.recorded_video.has_key_frames ? { path: '' } : `/videos/watch/${program.id}`">
+                            <div class="program-title">
+                                <div class="program-start-time">{{ new Date(program.start_time).getMinutes().toString().padStart(2, '0') }}</div>
+                                {{ program.title }}
+                            </div>
+                            <div class="program-description">
+                                {{ program.description }}
+                            </div>
+                        </router-link>
+                    </div>
                 </div>
             </div>
         </div>
