@@ -13,6 +13,7 @@
                         title="過去番組表"
                         :programs="programs"
                         :total="total_programs"
+                        :page="current_page"
                         :isLoading="is_loading"
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
