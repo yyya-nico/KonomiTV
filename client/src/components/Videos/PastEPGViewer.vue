@@ -464,7 +464,7 @@ const getClassName = (program: IRecordedProgram) => {
             color: inherit;
             text-decoration: none;
 
-            &:hover {
+            &:hover, &:focus {
                 z-index: 0;
                 min-height: fit-content;
                 border: thin solid rgb(var(--v-theme-accent-darken-1));
