@@ -8,16 +8,6 @@
                 <span class="past-epg-viewer__title-text">{{title}}</span>
             </h2>
         </div>
-        <div class="past-epg-viewer__pagination" v-if="!hidePagination && displayTotal > 0">
-            <v-pagination
-                v-model="current_page"
-                active-color="primary"
-                density="comfortable"
-                :length="Math.ceil(displayTotal / 90)"
-                :total-visible="7"
-                @update:model-value="$emit('update:page', $event)">
-            </v-pagination>
-        </div>
         <div class="past-epg-viewer__grid"
             :class="{
                 'past-epg-viewer__grid--loading': isLoading,
@@ -35,7 +25,8 @@
                 </div>
             </div>
             <div class="past-epg-viewer__grid-content">
-                <div id="epg-container">
+                <v-infinite-scroll v-if="!isLoading" id="epg-container" side="start" @load="load">
+                    <template v-slot:empty>すべて読み込みました</template>
                     <div id="channels">
                         <div class="dummy"></div>
                         <div v-for="channel in channels" :key="channel" class="channel-name">
@@ -71,7 +62,7 @@
                             </div>
                         </router-link>
                     </div>
-                </div>
+                </v-infinite-scroll>
             </div>
         </div>
     </div>
@@ -90,9 +81,9 @@ const props = withDefaults(defineProps<{
     title: string;
     programs: IRecordedProgram[];
     total: number;
+    updatePage: (page: number) => Promise<void>;
     page?: number;
     hideHeader?: boolean;
-    hidePagination?: boolean;
     showBackButton?: boolean;
     showEmptyMessage?: boolean;
     emptyIcon?: string;
@@ -103,7 +94,6 @@ const props = withDefaults(defineProps<{
     page: 1,
     hideHeader: false,
     hideSort: false,
-    hidePagination: false,
     showMoreButton: false,
     showBackButton: false,
     showEmptyMessage: true,
@@ -115,11 +105,6 @@ const props = withDefaults(defineProps<{
     forMylist: false,
     forWatchedHistory: false,
 });
-
-// Emits
-defineEmits<{
-    (e: 'update:page', page: number): void;
-}>();
 
 // 現在のページ番号
 const current_page = ref(props.page);
@@ -143,14 +128,6 @@ watch(() => props.programs, (newPrograms) => {
 watch(() => props.total, (newTotal) => {
     displayTotal.value = newTotal;
 });
-
-// 録画ファイルが削除された時の処理
-const handleProgramDeleted = (id: number) => {
-    // 内部のプログラムリストから削除されたプログラムを除外
-    displayPrograms.value = displayPrograms.value.filter(program => program.id !== id);
-    // 合計数を1減らす
-    displayTotal.value--;
-};
 
 // チャンネル名を抽出してソート
 const channels = computed(() => {
@@ -182,6 +159,16 @@ const getClassName = (program: IRecordedProgram) => {
         default: return 'genre_none';
     }
 };
+
+const load = async ({ done }) => {
+    if (current_page.value >= Math.ceil(displayTotal.value / 90)) {
+        done('empty');
+        return;
+    }
+    await props.updatePage(current_page.value + 1);
+    done('ok');
+};
+
 </script>
 <style lang="scss" scoped>
 
@@ -238,7 +225,7 @@ const getClassName = (program: IRecordedProgram) => {
         position: relative;
         width: fit-content;
         max-width: 100%;
-        --constant-height: 270px;
+        --constant-height: 200px;
         height: calc(100vh - var(--constant-height));
         background-color: rgb(var(--v-theme-background-lighten-1));
         border-radius: 8px;
@@ -267,15 +254,6 @@ const getClassName = (program: IRecordedProgram) => {
         .past-epg-viewer__grid-content {
             height: 100%;
             transition: visibility 0.2s ease, opacity 0.2s ease;
-        }
-    }
-
-    &__pagination {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 24px;
-        @include smartphone-vertical {
-            margin-bottom: 20px;
         }
     }
 
@@ -366,7 +344,7 @@ const getClassName = (program: IRecordedProgram) => {
 
     #epg-container {
         display: grid;
-        grid-template-rows: var(--channel-height) 1fr;
+        grid-template-rows: var(--channel-height) 80px 1fr;
         grid-template-columns: var(--time-width) 1fr;
         width: fit-content;
         height: 100%;
@@ -376,9 +354,21 @@ const getClassName = (program: IRecordedProgram) => {
         &::-webkit-scrollbar-track {
             background: transparent;
         }
+
+        :deep(.v-infinite-scroll__side) {
+            grid-row: 2;
+            grid-column: 2;
+            z-index: 1;
+        }
+
+        :deep(.v-infinite-scroll-intersect:nth-child(2)) {
+            grid-row: 1;
+            grid-column: 1 / -1;
+        }
     }
 
     #channels {
+        grid-row: 1;
         grid-column: 1 / -1;
         display: flex;
         position: sticky;
@@ -421,6 +411,7 @@ const getClassName = (program: IRecordedProgram) => {
     #times {
         display: flex;
         flex-direction: column;
+        grid-row: 3;
         position: sticky;
         left: 0;
         z-index: 1;
@@ -456,6 +447,8 @@ const getClassName = (program: IRecordedProgram) => {
         display: grid;
         grid-template-rows: repeat(var(--minute-sum, auto-fill), var(--time-height-1minute));
         grid-template-columns: repeat(auto-fill, var(--channel-width));
+        grid-row: 3;
+        grid-column: 2;
         position: relative;
         background-color: rgb(var(--v-theme-background-lighten-1));
 
