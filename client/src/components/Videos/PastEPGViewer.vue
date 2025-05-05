@@ -346,8 +346,8 @@ const getClassName = (program: IRecordedProgram) => {
     --channel-width: 150px;
     --channel-height: 34px;
     --time-width: 70px;
-    --time-height-1hour: calc(300px - 0.25px);
-    --time-height-1minute: calc((var(--time-height-1hour) - 59px) / 60);
+    --time-height-1hour: 300px;
+    --time-height-1minute: calc(var(--time-height-1hour) / 60);
 
     @include smartphone-horizontal {
         --channel-width: 120px;
@@ -365,7 +365,6 @@ const getClassName = (program: IRecordedProgram) => {
         display: grid;
         grid-template-rows: var(--channel-height) 1fr;
         grid-template-columns: var(--time-width) 1fr;
-        gap: 1px;
         width: fit-content;
         height: 100%;
         max-width: 100%;
@@ -379,7 +378,6 @@ const getClassName = (program: IRecordedProgram) => {
     #channels {
         grid-column: 1 / -1;
         display: flex;
-        gap: 1px;
         position: sticky;
         top: 0;
         z-index: 2;
@@ -420,7 +418,6 @@ const getClassName = (program: IRecordedProgram) => {
     #times {
         display: flex;
         flex-direction: column;
-        gap: 1px;
         position: sticky;
         left: 0;
         z-index: 1;
@@ -428,14 +425,18 @@ const getClassName = (program: IRecordedProgram) => {
 
         .time-label {
             position: sticky;
-            top: calc(var(--channel-height) + 1px);
+            top: var(--channel-height);
             overflow: hidden;
             height: var(--time-height-1hour);
             padding: 5px;
-            border-top: thin solid rgb(var(--v-theme-background-lighten-2));
             background-color: rgb(var(--v-theme-background-lighten-1));
             font-size: 14px;
             text-align: center;
+
+            + .time-label {
+                top: calc(var(--channel-height) - 1px);
+                border-top: thin solid rgb(var(--v-theme-background-lighten-2));
+            }
 
             @include smartphone-horizontal {
                 font-size: 12px;
@@ -452,13 +453,14 @@ const getClassName = (program: IRecordedProgram) => {
         display: grid;
         grid-template-rows: repeat(auto-fill, var(--time-height-1minute));
         grid-template-columns: repeat(auto-fill, var(--channel-width));
-        gap: 1px;
         position: relative;
         background-color: rgb(var(--v-theme-background-lighten-1));
 
         .program {
             overflow: hidden;
             width: var(--channel-width);
+            border: thin solid transparent;
+            background-clip: padding-box;
             color: inherit;
             text-decoration: none;
 
