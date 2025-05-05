@@ -49,7 +49,10 @@
                                 : time.toLocaleTimeString([], { hour: 'numeric' }) }}
                         </div>
                     </div>
-                    <div id="schedule">
+                    <div id="schedule"
+                        :style="{
+                            '--minute-sum': 60 * timeLabels.length,
+                        }">
                         <router-link v-ripple class="program" v-for="program in displayPrograms" :key="program.id"
                             :title="program.title"
                             :class="['program', getClassName(program)]"
@@ -451,7 +454,7 @@ const getClassName = (program: IRecordedProgram) => {
 
     #schedule {
         display: grid;
-        grid-template-rows: repeat(auto-fill, var(--time-height-1minute));
+        grid-template-rows: repeat(var(--minute-sum, auto-fill), var(--time-height-1minute));
         grid-template-columns: repeat(auto-fill, var(--channel-width));
         position: relative;
         background-color: rgb(var(--v-theme-background-lighten-1));
