@@ -232,11 +232,11 @@ const load = async ({ done }) => {
         overflow: clip;
 
         @include smartphone-horizontal {
-            --constant-height: 195px;
+            --constant-height: 125px;
             font-size: 15px;
         }
         @include smartphone-vertical {
-            --constant-height: 215px;
+            --constant-height: 150px;
             font-size: 14px;
         }
 
