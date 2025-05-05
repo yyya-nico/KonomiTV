@@ -132,7 +132,7 @@ watch(() => props.total, (newTotal) => {
 // チャンネル名を抽出してソート
 const channels = computed(() => {
     return [...new Set(displayPrograms.value
-        .toSorted((a, b) => a.channel && b.channel ? a.channel.remocon_id - b.channel.remocon_id : 0)
+        .toSorted((a, b) => a.channel && b.channel ? a.channel.display_channel_id.localeCompare(b.channel.display_channel_id) : 0)
         .map(p => p.channel?.name))];
 });
 
