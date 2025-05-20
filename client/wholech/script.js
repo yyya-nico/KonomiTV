@@ -94,7 +94,7 @@ const channelsUpdate = async () => { // TODO: APIClient.get()を利用する
 const getGR = () => channelsList?.GR;
 const getDisplayGR = () => getGR().filter(channel => channel.is_display === true);
 let channelsList;
-(async () => await channelsUpdate())();
+await channelsUpdate();
 
 const getFormattedTime = str => new Date(str).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 const tuning = ch => {

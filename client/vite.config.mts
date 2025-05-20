@@ -21,6 +21,7 @@ export default defineConfig({
     },
     // ビルドの設定
     build: {
+        target: 'ES2022',
         chunkSizeWarningLimit: 3 * 1024 * 1024,  // 3MB に緩和
         rollupOptions: {
             input: {
