@@ -1,12 +1,13 @@
 
-import httpx
 import pkgutil
 import secrets
 import sys
-from passlib.context import CryptContext
 from pathlib import Path
-from pydantic import BaseModel, PositiveInt
 from typing import Any, Literal
+
+import httpx
+from passlib.context import CryptContext
+from pydantic import BaseModel, PositiveInt
 
 
 # バージョン
@@ -60,6 +61,7 @@ LIBRARY_PATH = {
     'rkmppenc': str(LIBRARY_DIR / 'rkmppenc/rkmppenc') + LIBRARY_EXTENSION,
     'tsreadex': str(LIBRARY_DIR / 'tsreadex/tsreadex') + LIBRARY_EXTENSION,
     'psisiarc': str(LIBRARY_DIR / 'psisiarc/psisiarc') + LIBRARY_EXTENSION,
+    'psisimux': str(LIBRARY_DIR / 'psisimux/psisimux') + LIBRARY_EXTENSION,
 }
 
 # データベース (Tortoise ORM) の設定
@@ -361,7 +363,7 @@ if Path.exists(JWT_SECRET_KEY_PATH) is False:
     with open(JWT_SECRET_KEY_PATH, mode='w', encoding='utf-8') as file:
         file.write(secrets.token_hex(32))  # 32ビット (256文字) の乱数を書き込む
 ## jwt_secret.dat からシークレットキーをロードする
-with open(JWT_SECRET_KEY_PATH, mode='r', encoding='utf-8') as file:
+with open(JWT_SECRET_KEY_PATH, encoding='utf-8') as file:
     JWT_SECRET_KEY = file.read().strip()
 
 # パスワードハッシュ化のための設定

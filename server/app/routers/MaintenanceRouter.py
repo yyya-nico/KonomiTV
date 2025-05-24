@@ -1,22 +1,23 @@
 
-import anyio
 import asyncio
 import json
 import os
-import psutil
 import signal
 import sys
 import threading
 import time
-from fastapi import APIRouter, Depends, Request, status, Path
+from collections.abc import Coroutine
+from typing import Annotated, Any, Literal
+
+import anyio
+import psutil
+from fastapi import APIRouter, Depends, Path, Request, status
 from fastapi.exceptions import HTTPException
 from fastapi.responses import Response
 from fastapi.security import OAuth2PasswordBearer
 from sse_starlette.sse import EventSourceResponse
-from typing import Any, Annotated, Coroutine, Literal
 
-from app import logging
-from app import schemas
+from app import logging, schemas
 from app.config import Config
 from app.constants import (
     KONOMITV_ACCESS_LOG_PATH,
@@ -24,6 +25,7 @@ from app.constants import (
     RESTART_REQUIRED_LOCK_PATH,
     THUMBNAILS_DIR,
 )
+from app.metadata.CMSectionsDetector import CMSectionsDetector
 from app.metadata.KeyFrameAnalyzer import KeyFrameAnalyzer
 from app.metadata.RecordedScanTask import RecordedScanTask
 from app.metadata.ThumbnailGenerator import ThumbnailGenerator
@@ -120,7 +122,7 @@ def LogStreamAPI(
         """イベントストリームを出力するジェネレーター"""
 
         # ファイルを開く
-        with open(log_path, 'r', encoding='utf-8') as f:
+        with open(log_path, encoding='utf-8') as f:
             # 初回接続時に全ての行を送信
             all_lines = [line.rstrip('\n') for line in f.readlines() if line.strip()]  # 空行は除外
             yield {
@@ -249,7 +251,16 @@ async def BackgroundAnalysisAPI():
 
                 # キーフレーム情報が未解析の場合、タスクに追加
                 if not db_recorded_video.has_key_frames:
-                    tasks.append(KeyFrameAnalyzer(file_path).analyze())
+                    tasks.append(KeyFrameAnalyzer(file_path, db_recorded_video.container_format).analyzeAndSave())
+
+                # CM 区間情報が未解析の場合、タスクに追加
+                ## cm_sections が [] の時は「解析はしたが CM 区間がなかった/検出に失敗した」ことを表している
+                ## CM 区間解析はかなり計算コストが高い処理のため、一度解析に失敗した録画ファイルは再解析しない
+                if db_recorded_video.cm_sections is None:
+                    tasks.append(CMSectionsDetector(
+                        file_path = anyio.Path(db_recorded_video.file_path),
+                        duration_sec = db_recorded_video.duration,
+                    ).detectAndSave())
 
                 # サムネイルが未生成の場合、タスクに追加
                 # どちらか片方だけがないパターンも考えられるので、その場合もサムネイル生成を実行する
@@ -264,7 +275,7 @@ async def BackgroundAnalysisAPI():
                     if db_recorded_program is not None:
                         # RecordedProgram モデルを schemas.RecordedProgram に変換
                         recorded_program = schemas.RecordedProgram.model_validate(db_recorded_program, from_attributes=True)
-                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generate(skip_tile_if_exists=True))
+                        tasks.append(ThumbnailGenerator.fromRecordedProgram(recorded_program).generateAndSave(skip_tile_if_exists=True))
 
                 # タスクが存在する場合、同時実行
                 if tasks:
