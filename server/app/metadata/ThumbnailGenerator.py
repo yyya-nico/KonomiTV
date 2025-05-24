@@ -1,22 +1,22 @@
 
 from __future__ import annotations
 
-import anyio
 import asyncio
 import concurrent.futures
-import cv2
 import math
-import numpy as np
 import pathlib
 import random
 import subprocess
 import time
+from typing import ClassVar, Literal, cast
+
+import anyio
+import cv2
+import numpy as np
 import typer
 from numpy.typing import NDArray
-from typing import cast, ClassVar, Literal
 
-from app import logging
-from app import schemas
+from app import logging, schemas
 from app.config import Config, LoadConfig
 from app.constants import LIBRARY_PATH, STATIC_DIR, THUMBNAILS_DIR
 
@@ -132,6 +132,7 @@ class ThumbnailGenerator:
     def __init__(
         self,
         file_path: anyio.Path,
+        container_format: Literal['MPEG-TS', 'MPEG-4'],
         file_hash: str,
         duration_sec: float,
         candidate_time_ranges: list[tuple[float, float]],
@@ -142,6 +143,7 @@ class ThumbnailGenerator:
 
         Args:
             file_path (anyio.Path): 動画ファイルのパス
+            container_format (Literal['MPEG-TS', 'MPEG-4']): 動画ファイルのコンテナ形式
             file_hash (str): 動画ファイルのハッシュ値（ファイル名の一意性を保証するため）
             duration_sec (float): 動画の再生時間(秒)
             candidate_time_ranges (list[tuple[float, float]]): 代表サムネ候補とする区間 [(start, end), ...]
@@ -149,6 +151,7 @@ class ThumbnailGenerator:
         """
 
         self.file_path = file_path
+        self.container_format = container_format
         self.duration_sec = duration_sec
         self.candidate_intervals = candidate_time_ranges
         self.face_detection_mode = face_detection_mode
@@ -262,6 +265,7 @@ class ThumbnailGenerator:
         # コンストラクタに渡す
         return cls(
             file_path = anyio.Path(recorded_program.recorded_video.file_path),
+            container_format = recorded_program.recorded_video.container_format,
             file_hash = recorded_program.recorded_video.file_hash,
             duration_sec = duration_sec,
             candidate_time_ranges = candidate_time_ranges,
@@ -269,7 +273,7 @@ class ThumbnailGenerator:
         )
 
 
-    async def generate(self, skip_tile_if_exists: bool = False) -> None:
+    async def generateAndSave(self, skip_tile_if_exists: bool = False) -> None:
         """
         プレイヤーのシークバー用サムネイルタイル画像を生成し、
         さらに候補区間内のフレームから最も良い1枚を選び、代表サムネイルとして出力する
@@ -454,8 +458,8 @@ class ThumbnailGenerator:
                         '-y',
                         # 非対話モードで実行し、不意のフリーズを回避する
                         '-nostdin',
-                        # 入力フォーマットを指定（現状 MPEG-TS 固定）
-                        '-f', 'mpegts',
+                        # 入力フォーマットを指定
+                        '-f', 'mpegts' if self.container_format == 'MPEG-TS' else 'mp4',
                         # I フレームのみをデコードする (nokey ではなく nointra でないと一部フレームが緑色になる…)
                         '-skip_frame', 'nointra',
                         # 抽出開始位置
@@ -532,7 +536,7 @@ class ThumbnailGenerator:
                         try:
                             # 同期イベントが発火するまで待機（キャンセル可能）
                             await asyncio.wait_for(sync_event.wait(), timeout=30.0)
-                        except (asyncio.CancelledError, asyncio.TimeoutError):
+                        except (TimeoutError, asyncio.CancelledError):
                             # キャンセルまたはタイムアウト時は即座に終了
                             return
                         finally:
@@ -607,7 +611,7 @@ class ThumbnailGenerator:
                                 await asyncio.gather(*worker_tasks, return_exceptions=True)
                                 break
 
-                        except asyncio.TimeoutError:
+                        except TimeoutError:
                             # タイムアウト時はエラーとして扱う
                             raise RuntimeError('Timeout while waiting for frame')
 
@@ -682,19 +686,27 @@ class ThumbnailGenerator:
         try:
             # PNG フレームを OpenCV の画像データに変換
             candidate_images = []
-            for png_data in png_frames:
-                try:
-                    # PNG バイナリを numpy 配列に変換
-                    image_data = np.frombuffer(png_data, dtype=np.uint8)
-                    # OpenCV で画像デコード
-                    frame = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
-                    if frame is None:
-                        logging.warning(f'{self.file_path}: Failed to decode PNG frame. Using black image instead.')
-                        # デコードに失敗した場合、黒画像を代わりに使用
-                        frame = np.zeros((height, width, 3), dtype=np.uint8)
-                except Exception as ex:
-                    logging.warning(f'{self.file_path}: Exception occurred while decoding PNG frame. Using black image instead:', exc_info=ex)
-                    # 例外が発生した場合、黒画像を代わりに使用
+            for i in range(len(png_frames)):
+                frame = None
+                if not png_frames[i]:
+                    # 動画末尾付近はその先に I フレームがないことが多くこのときその要素は空になる
+                    # この条件は頻繁なので、先頭要素でなく以降の要素がすべて空であるなら警告は出さない
+                    for j in range(i, len(png_frames)):
+                        if j == 0 or png_frames[j]:
+                            logging.warning(f'{self.file_path}: Failed to extract PNG frame. Using black image instead.')
+                            break
+                else:
+                    try:
+                        # PNG バイナリを numpy 配列に変換
+                        image_data = np.frombuffer(png_frames[i], dtype=np.uint8)
+                        # OpenCV で画像デコード
+                        frame = cv2.imdecode(image_data, cv2.IMREAD_COLOR)
+                        if frame is None:
+                            logging.warning(f'{self.file_path}: Failed to decode PNG frame. Using black image instead.')
+                    except Exception as ex:
+                        logging.warning(f'{self.file_path}: Exception occurred while decoding PNG frame. Using black image instead:', exc_info=ex)
+                if frame is None:
+                    # 黒画像を代わりに使用
                     frame = np.zeros((height, width, 3), dtype=np.uint8)
                 candidate_images.append(frame)
 
@@ -1542,6 +1554,6 @@ if __name__ == "__main__":
             generator.face_detection_mode = face_detection_mode
 
         # サムネイルを生成
-        asyncio.run(generator.generate(skip_tile_if_exists=skip_tile_if_exists))
+        asyncio.run(generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists))
 
     typer.run(main)

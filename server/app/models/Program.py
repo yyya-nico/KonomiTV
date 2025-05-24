@@ -3,28 +3,23 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import ariblib.constants
 import asyncio
 import concurrent.futures
 import gc
-import httpx
 import json
 import time
-from datetime import datetime
-from datetime import timedelta
-from tortoise import connections
-from tortoise import exceptions
-from tortoise import fields
-from tortoise import Tortoise
-from tortoise import transactions
-from tortoise.fields import Field as TortoiseField
-from tortoise.models import Model as TortoiseModel
+from datetime import datetime, timedelta
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
+import ariblib.constants
+import httpx
+from tortoise import Tortoise, connections, exceptions, fields, transactions
+from tortoise.fields import Field as TortoiseField
+from tortoise.models import Model as TortoiseModel
+
 from app import logging
-from app.config import Config
-from app.config import LoadConfig
+from app.config import Config, LoadConfig
 from app.constants import DATABASE_CONFIG, HTTPX_CLIENT
 from app.models.Channel import Channel
 from app.schemas import Genre
@@ -374,8 +369,11 @@ class Program(TortoiseModel):
                     program.video_codec = None
                     program.video_resolution = None
                     if 'video' in program_info:
-                        program.video_type = ariblib.constants.COMPONENT_TYPE \
-                            [program_info['video']['streamContent']].get(program_info['video']['componentType'], 'Unknown')
+                        if program_info['video']['streamContent'] is not None:
+                            program.video_type = ariblib.constants.COMPONENT_TYPE \
+                                [program_info['video']['streamContent']].get(program_info['video']['componentType'], 'Unknown')
+                        else:
+                            program.video_type = 'Unknown'
                         program.video_codec = program_info['video']['type']
                         program.video_resolution = program_info['video']['resolution']
 

@@ -4,14 +4,11 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-from datetime import date
-from datetime import datetime
-from pydantic import BaseModel
-from pydantic import computed_field
-from pydantic import Field
-from pydantic import RootModel
+from datetime import date, datetime
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, RootModel, computed_field
 from tortoise.contrib.pydantic import PydanticModel
-from typing import Annotated, Literal, Union
 from typing_extensions import TypedDict
 
 
@@ -101,7 +98,7 @@ class RecordedVideo(PydanticModel):
     recording_start_time: datetime | None
     recording_end_time: datetime | None
     duration: float
-    container_format: Literal['MPEG-TS']
+    container_format: Literal['MPEG-TS', 'MPEG-4']
     video_codec: Literal['MPEG-2', 'H.264', 'H.265']
     video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']
     video_scan_type: Literal['Interlaced', 'Progressive']
@@ -116,7 +113,7 @@ class RecordedVideo(PydanticModel):
     secondary_audio_sampling_rate: int | None = None
     # key_frames はデータ量が多いため、キーフレーム情報を取得できているかを表す has_key_frames のみ返す
     has_key_frames: bool = False
-    cm_sections: list[CMSection] = []
+    cm_sections: list[CMSection] | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -519,8 +516,8 @@ class Tweet(BaseModel):
     retweeted: bool
     favorite_count: int
     favorited: bool
-    retweeted_tweet: Union['Tweet', None]
-    quoted_tweet: Union['Tweet', None]
+    retweeted_tweet: Tweet | None
+    quoted_tweet: Tweet | None
 
 class TweetUser(BaseModel):
     id: str

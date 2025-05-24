@@ -3,28 +3,38 @@
 # ref: https://stackoverflow.com/a/33533514/17124142
 from __future__ import annotations
 
-import anyio
-import aiofiles
-import aiohttp
 import asyncio
-import httpx
 import gc
 import os
 import re
 import sys
 import time
+from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING, ClassVar, Literal, cast
+
+import aiofiles
+import aiohttp
+import anyio
+import httpx
 from aiofiles.threadpool.text import AsyncTextIOWrapper
 from biim.mpeg2ts import ts
-from typing import AsyncIterator, cast, ClassVar, Literal, TYPE_CHECKING
 
 from app import logging
 from app.config import Config
-from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, LIBRARY_PATH, LOGS_DIR, QUALITY, QUALITY_TYPES
+from app.constants import (
+    API_REQUEST_HEADERS,
+    HTTPX_CLIENT,
+    LIBRARY_PATH,
+    LOGS_DIR,
+    QUALITY,
+    QUALITY_TYPES,
+)
 from app.models.Channel import Channel
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.utils import GetMirakurunAPIEndpointURL
 from app.utils.edcb.EDCBTuner import EDCBTuner
 from app.utils.edcb.PipeStreamReader import PipeStreamReader
+
 
 if TYPE_CHECKING:
     from app.streams.LiveStream import LiveStream
@@ -33,7 +43,7 @@ if TYPE_CHECKING:
 class LiveEncodingTask:
 
     # H.264 再生時のエンコード後のストリームの GOP 長 (秒)
-    GOP_LENGTH_SECONDS_H264: ClassVar[float] = float(0.5)
+    GOP_LENGTH_SECONDS_H264: ClassVar[float] = 0.5
 
     # H.265 再生時のエンコード後のストリームの GOP 長 (秒)
     GOP_LENGTH_SECONDS_H265: ClassVar[float] = float(2)
@@ -284,9 +294,12 @@ class LiveEncodingTask:
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
         ## 両方つけるのが重要で、--input-analyze だけだとエンコーダーがフリーズすることがある
-        ## BS4K では --fps を指定しない
-        input_fps = '' if channel_type == 'BS4K' else '--fps 30000/1001'
-        options.append(f'--input-format mpegts {input_fps} --input-probesize {input_probesize}K --input-analyze {input_analyze} --input -')
+        options.append(f'--input-format mpegts --input-probesize {input_probesize}K --input-analyze {input_analyze}')
+        ## BS4K 以外では 29.97fps (59.94i) を指定する
+        if channel_type != 'BS4K':
+            options.append('--fps 30000/1001')
+        ## 入力を指定する
+        options.append('--input -')
         ## VCEEncC の HW デコーダーはエラー耐性が低く TS を扱う用途では不安定なので、SW デコーダーを利用する
         if encoder_type == 'VCEEncC':
             options.append('--avsw')
@@ -311,9 +324,9 @@ class LiveEncodingTask:
         ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
         if encoder_type == 'QSVEncC' or encoder_type == 'rkmppenc':
             options.append('--disable-opencl')
-        ## NVEncC では NVML によるモニタリングと DX11 を無効化することで初期化フェーズを高速化する
+        ## NVEncC では NVML によるモニタリングと DX11, Vulkan を無効化することで初期化フェーズを高速化する
         if encoder_type == 'NVEncC':
-            options.append('--disable-nvml 1 --disable-dx11')
+            options.append('--disable-nvml 1 --disable-dx11 --disable-vulkan')
 
         # 映像
         ## コーデック
@@ -668,7 +681,7 @@ class LiveEncodingTask:
                     headers = {**API_REQUEST_HEADERS, 'X-Mirakurun-Priority': '0'},
                     timeout = aiohttp.ClientTimeout(connect=15, sock_connect=15, sock_read=15)
                 )
-            except (aiohttp.ClientConnectorError, asyncio.TimeoutError):
+            except (TimeoutError, aiohttp.ClientConnectorError):
 
                 # 番組名に「放送休止」などが入っていれば停波によるものとみなし、そうでないならチューナーへの接続に失敗したものとする
                 if program_present is None or program_present.isOffTheAirProgram():
