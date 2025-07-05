@@ -141,7 +141,7 @@ const chFrames = [];
 getDisplayGR().forEach((ch, index) => {
     const html =
     `<div class="chframe">
-        <video playsinline controlsList="noremoteplayback"></video>
+        <video playsinline controlsList="noremoteplayback" autoplay muted></video>
         <div class="broadcast-wrap">
             <div class="broadcast-channel-box">
                 <span class="broadcast-channel">${ch.remocon_id}</span>
@@ -214,14 +214,6 @@ getDisplayGR().forEach((ch, index) => {
             player.play();
         });
         player.load();
-        player.play()
-            .then(() => {
-                tuning('all');
-            })
-            .catch(() => {
-                player.muted = true;
-                player.play();
-            });
     }
 });
 controlInit();
