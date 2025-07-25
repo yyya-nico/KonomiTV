@@ -179,6 +179,7 @@ LOGGING_CONFIG: dict[str, Any] = {
 class Quality(BaseModel):
     is_hevc: bool  # 映像コーデックが HEVC かどうか
     is_60fps: bool  # フレームレートが 60fps かどうか
+    is_1fps: bool = False  # フレームレートが 1fps かどうか (デフォルトは False)
     width: PositiveInt  # 縦解像度
     height: PositiveInt  # 横解像度
     video_bitrate: str  # 映像のビットレート
@@ -203,6 +204,7 @@ QUALITY_TYPES = Literal[
     '360p-hevc',
     '240p',
     '240p-hevc',
+    '144p',
 ]
 
 # 映像と音声の品質
@@ -349,6 +351,16 @@ QUALITY: dict[QUALITY_TYPES, Quality] = {
         height = 240,
         video_bitrate = '450K',
         video_bitrate_max = '650K',
+        audio_bitrate = '128K',
+    ),
+    '144p': Quality(
+        is_hevc = False,
+        is_60fps = False,
+        is_1fps = True,  # 144p は 1fps のみ
+        width = 256,
+        height = 144,
+        video_bitrate = '150K',
+        video_bitrate_max = '250K',
         audio_bitrate = '128K',
     ),
 }

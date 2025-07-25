@@ -151,6 +151,10 @@ class VideoEncodingTask:
             if QUALITY[quality].is_60fps is True:
                 options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
                 options.append(f'-r 60000/1001 -g {int(self.GOP_LENGTH_SECOND * 60)}')
+            # インターレース解除 (60i → 1p (フレームレート: 1fps))
+            elif QUALITY[quality].is_1fps is True:
+                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-r 1 -g {int(self.GOP_LENGTH_SECOND * 1)}')
             ## インターレース解除 (60i → 30p (フレームレート: 30fps))
             else:
                 options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
@@ -317,7 +321,10 @@ class VideoEncodingTask:
                     options.append('--vpp-afs preset=default,coeff_shift=0')
                 elif encoder_type == 'rkmppenc':
                     options.append('--vpp-deinterlace normal_i5')
-                options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
+                if QUALITY[quality].is_1fps is True:
+                    options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 1)}')
+                else:
+                    options.append(f'--avsync vfr --gop-len {int(self.GOP_LENGTH_SECOND * 30)}')
         ## プログレッシブ映像
         ## プログレッシブ映像の場合は 60fps 化する方法はないため、無視して入力ファイルと同じ fps でエンコードする
         elif self.video_stream.recorded_program.recorded_video.video_scan_type == 'Progressive':

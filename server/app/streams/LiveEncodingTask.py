@@ -194,6 +194,10 @@ class LiveEncodingTask:
             if QUALITY[quality].is_60fps is True:
                 options.append(f'-vf yadif=mode=1:parity=-1:deint=1,scale={video_width}:{video_height}')
                 options.append(f'-r 60000/1001 -g {int(gop_length_second * 60)}')
+            # インターレース解除 (60i → 1p (フレームレート: 1fps))
+            elif QUALITY[quality].is_1fps is True:
+                options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
+                options.append(f'-r 1 -g {int(gop_length_second * 1)}')
             ## インターレース解除 (60i → 30p (フレームレート: 30fps))
             else:
                 options.append(f'-vf yadif=mode=0:parity=-1:deint=1,scale={video_width}:{video_height}')
@@ -407,7 +411,10 @@ class LiveEncodingTask:
                     options.append('--vpp-afs preset=default')
                 elif encoder_type == 'rkmppenc':
                     options.append('--vpp-deinterlace normal_i5')
-                options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
+                if QUALITY[quality].is_1fps is True:
+                    options.append(f'--avsync vfr --gop-len {int(gop_length_second * 1)}')
+                else:
+                    options.append(f'--avsync vfr --gop-len {int(gop_length_second * 30)}')
 
         ## フル HD 放送が行われているチャンネルかつ、指定された品質の解像度が 1440×1080 (1080p) の場合のみ、
         ## 特別に縦解像度を 1920 に変更してフル HD (1920×1080) でエンコードする
