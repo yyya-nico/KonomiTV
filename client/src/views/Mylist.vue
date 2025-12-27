@@ -19,7 +19,7 @@
                         :showBackButton="true"
                         :showEmptyMessage="!is_loading"
                         :emptyIcon="'ic:round-playlist-play'"
-                        :emptyMessage="'あとで見たい番組を<br class=\'d-sm-none\'>マイリストに保存できます。'"
+                        :emptyMessage="'あとで観たい番組を<br class=\'d-sm-none\'>マイリストに保存できます。'"
                         :emptySubMessage="'録画番組の右上にある ＋ ボタンから、<br class=\'d-sm-none\'>番組をマイリストに追加できます。'"
                         :forMylist="true"
                         @update:page="updatePage"
@@ -41,6 +41,7 @@ import RecordedProgramList from '@/components/Videos/RecordedProgramList.vue';
 import { IRecordedProgram, MylistSortOrder } from '@/services/Videos';
 import Videos from '@/services/Videos';
 import useSettingsStore from '@/stores/SettingsStore';
+import useUserStore from '@/stores/UserStore';
 
 // ルーター
 const route = useRoute();
@@ -150,6 +151,10 @@ watch(() => settingsStore.settings.mylist, async () => {
 
 // 開始時に実行
 onMounted(async () => {
+    // 事前にログイン状態を同期（トークンがあればユーザー情報を取得）
+    const userStore = useUserStore();
+    await userStore.fetchUser();
+
     // クエリパラメータから初期値を設定
     if (route.query.page) {
         current_page.value = parseInt(route.query.page as string);

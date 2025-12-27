@@ -14,6 +14,7 @@ from ariblib.descriptors import (
     ServiceDescriptor,
     TSInformationDescriptor,
 )
+from ariblib.packet import payload, payload_unit_start_indicator, pid
 from ariblib.sections import (
     ActualNetworkNetworkInformationSection,
     ActualStreamPresentFollowingEventInformationSection,
@@ -109,7 +110,7 @@ class TSInfoAnalyzer:
                         return True
 
                     # PAT, NIT, SDT, TOT, EIT を取り出す
-                    if not TSInfoAnalyzer.readPSIData(f, [0x00, 0x10, 0x11, 0x14, 0x12, 0x26, 0x27], callback):
+                    if not self.__readPSIData(f, [0x00, 0x10, 0x11, 0x14, 0x12, 0x26, 0x27], callback):
                         logging.warning(f'{psc_path}: File contents may be invalid.')
                     if last_tot_time_sec is not None:
                         self.last_tot_timedelta = timedelta(seconds = last_time_sec - last_tot_time_sec)
@@ -154,6 +155,9 @@ class TSInfoAnalyzer:
         ## EIT[p/f] のうち、現在と次の番組情報を両方取得した上で、録画マージンを考慮してどちらの番組を録画したかを判定する
         recorded_program_present = self.__analyzeEITInformation(channel, is_following=False)
         recorded_program_following = self.__analyzeEITInformation(channel, is_following=True)
+        ## 通常まず発生し得ないが、どちらかの番組情報が取得できなかった場合は正常に判定できないため None を返す
+        if recorded_program_present is None or recorded_program_following is None:
+            return None
 
         # 録画開始時刻と次の番組の開始時刻を比較して、もし差が0〜1分以内なら次の番組情報を利用する
         ## 録画ファイルのサイズ全体の 20% の位置にシークしてから番組情報を取得しているため、基本的には現在の番組情報を使うことになるはず
@@ -181,30 +185,118 @@ class TSInfoAnalyzer:
     def analyzeRecordingTime(self) -> tuple[datetime, datetime] | None:
         """
         TOT (Time Offset Table) から録画開始時刻と録画終了時刻を解析する
-        このメソッドは MPEG-TS 形式「以外」かつ PSI/SI 書庫が存在する場合のみ利用できる
+        このメソッドは MPEG-TS / PSI/SI 書庫 (.psc) の両方に対応する
 
         Returns:
             tuple[datetime, datetime]: 録画開始時刻と録画終了時刻 (取得できなかった場合は None)
         """
 
-        assert self.recorded_video.container_format != 'MPEG-TS'
-        assert self.end_ts_offset != 0
+        # MPEG-TS の場合: ariblib.packet のユーティリティと TimeOffsetSection を使って単一パスで解析する
+        if self.recorded_video.container_format == 'MPEG-TS':
+            try:
+                # 誤動作防止のため必ず最初にシークを戻す
+                self.ts.seek(0)
 
-        # 誤動作防止のため必ず最初にシークを戻す
-        self.ts.seek(0)
+                buffer = bytearray()
+                first_pcr_sec: float | None = None
+                current_pcr_sec: float | None = None
+                # PSI セクション開始時点 (PUSI) の PCR 値を保持し、そのセクションに対する経過時間算出に用いる
+                pcr_at_section_start_sec: float | None = None
 
-        # TOT (Time Offset Table) を抽出
-        first_tot_time: datetime | None = None
-        last_tot_time: datetime | None = None
-        for tot in self.ts.sections(TimeOffsetSection):
-            if first_tot_time is None:
-                first_tot_time = tot.JST_time
-            last_tot_time = tot.JST_time
+                # end_ts_offset 以降はゼロ埋めである可能性が高いため、読み取りを制限する
+                read_bytes = 0
+                while True:
+                    packet = self.ts.read(ts.PACKET_SIZE)
+                    if packet is None or len(packet) < ts.PACKET_SIZE:
+                        break
+                    read_bytes += ts.PACKET_SIZE
+                    if read_bytes > self.end_ts_offset:
+                        break
 
-        if first_tot_time is None or last_tot_time is None:
+                    # PCR を追跡
+                    pcr_val = ts.pcr(packet)
+                    if pcr_val is not None:
+                        current_pcr_sec = pcr_val / ts.HZ
+                        if first_pcr_sec is None:
+                            first_pcr_sec = current_pcr_sec
+
+                    # TOT (PID 0x14) のセクション組み立て
+                    if pid(packet) != 0x14:
+                        continue
+
+                    prev, current = payload(packet)
+                    if payload_unit_start_indicator(packet):
+                        # まず、直前まで構築していたセクションを prev で完結させる
+                        if buffer:
+                            buffer.extend(prev)
+                        # セクション長に従い切り出して TimeOffsetSection として解釈
+                        while buffer and buffer[0] != 0xFF:
+                            try:
+                                if buffer[0] == 0x73:  # TimeOffsetSection の table_id
+                                    section = TimeOffsetSection(buffer[:])
+                                    if section.isfull():
+                                        # 経過時間は「当該セクションの開始時 PCR - 最初の PCR」で算出する
+                                        if (first_pcr_sec is not None) and (pcr_at_section_start_sec is not None):
+                                            elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
+                                            assert section.JST_time is not None
+                                            jst_time = section.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                                            recording_start_time = jst_time - timedelta(seconds=elapsed)
+                                            recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
+                                            return (recording_start_time, recording_end_time)
+                                # 次セクションへ
+                                next_start = ((buffer[1] & 0x0F) << 8 | buffer[2]) + 3
+                                buffer[:] = buffer[next_start:]
+                            except Exception:
+                                break
+                        # 新しいセクション (current) を開始する。開始時点の PCR を保存する
+                        buffer[:] = current
+                        pcr_at_section_start_sec = current_pcr_sec
+                    elif not buffer:
+                        continue
+                    else:
+                        buffer.extend(current)
+
+                # 残ったバッファを片付ける
+                if buffer and buffer[0] == 0x73:
+                    try:
+                        section = TimeOffsetSection(buffer[:])
+                        if section.isfull():
+                            # ファイル末尾でセクションが完結した場合も、当該セクション開始時の PCR を使う
+                            if (first_pcr_sec is None) or (pcr_at_section_start_sec is None):
+                                pass
+                            else:
+                                elapsed = max(float(pcr_at_section_start_sec) - float(first_pcr_sec), 0.0)
+                                assert section.JST_time is not None
+                                jst_time = section.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                                recording_start_time = jst_time - timedelta(seconds=elapsed)
+                                recording_end_time = recording_start_time + timedelta(seconds=self.recorded_video.duration)
+                                return (recording_start_time, recording_end_time)
+                    except Exception:
+                        pass
+
+            except Exception as ex:
+                logging.warning(f'{self.recorded_video.file_path}: Failed to analyze TOT from TS:', exc_info=ex)
+                return None
+
             return None
 
-        return (first_tot_time - self.first_tot_timedelta, last_tot_time + self.last_tot_timedelta)
+        # それ以外の場合、存在すれば PSI/SI 書庫 (.psc) から作成された仮想 TS ファイルを使って録画開始時刻と録画終了時刻を解析する
+        else:
+            # 誤動作防止のため必ず最初にシークを戻す
+            self.ts.seek(0)
+
+            # TOT (Time Offset Table) を抽出
+            first_tot_time: datetime | None = None
+            last_tot_time: datetime | None = None
+            for tot in self.ts.sections(TimeOffsetSection):
+                if first_tot_time is None:
+                    first_tot_time = tot.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+                last_tot_time = tot.JST_time.replace(tzinfo=ZoneInfo('Asia/Tokyo'))
+
+            if first_tot_time is None or last_tot_time is None:
+                return None
+
+            return (first_tot_time - self.first_tot_timedelta, last_tot_time + self.last_tot_timedelta)
 
 
     def __analyzeSDTInformation(self) -> schemas.Channel | None:
@@ -233,11 +325,11 @@ class TSInfoAnalyzer:
             transport_stream_id = int(pat.transport_stream_id)
 
             # サービス ID を取得
-            for pid in pat.pids:
-                if pid.program_number:
+            for pat_pid in pat.pids:
+                if pat_pid.program_number:
                     # program_number は service_id と等しい
                     # PAT から抽出した service_id を使えば、映像や音声が存在するストリームの番組情報を的確に抽出できる
-                    service_id = int(pid.program_number)
+                    service_id = int(pat_pid.program_number)
                     # 他にも pid があるかもしれないが（複数のチャンネルが同じストリームに含まれている場合など）、最初の pid のみを取得する
                     break
 
@@ -346,7 +438,7 @@ class TSInfoAnalyzer:
         return channel
 
 
-    def __analyzeEITInformation(self, channel: schemas.Channel, is_following: bool = False) -> schemas.RecordedProgram:
+    def __analyzeEITInformation(self, channel: schemas.Channel, is_following: bool = False) -> schemas.RecordedProgram | None:
         """
         TS 内の EIT (Event Information Table) から番組情報を取得する
         チャンネル情報（サービス ID も含まれる）が必須な理由は、CS など複数サービスを持つ TS で
@@ -357,7 +449,7 @@ class TSInfoAnalyzer:
             is_following (bool): 次の番組情報を取得するかどうか (デフォルト: 現在の番組情報)
 
         Returns:
-            schemas.RecordedProgram: 録画番組情報を表すモデル
+            schemas.RecordedProgram | None: 録画番組情報を表すモデル、または取得に失敗した場合は None
         """
 
         if is_following is True:
@@ -396,6 +488,7 @@ class TSInfoAnalyzer:
 
         # TS から EIT (Event Information Table) を抽出
         count: int = 0
+        corrupted_events: int = 0  # 破損したイベント数をカウント
         for eit in self.ts.sections(ActualStreamPresentFollowingEventInformationSection):
 
             # section_number と service_id が一致したときだけ
@@ -405,9 +498,19 @@ class TSInfoAnalyzer:
                 # EIT から得られる各種 Descriptor 内の情報を取得
                 # ariblib.event が各種 Descriptor のラッパーになっていたのでそれを利用
                 for event_data in eit.events:
-
-                    # EIT 内のイベントを取得
-                    event: Any = ariblib.event.Event(eit, event_data)
+                    try:
+                        # EIT 内のイベントを取得
+                        event: Any = ariblib.event.Event(eit, event_data)
+                    except (IndexError, ValueError, TypeError, AttributeError) as ex:
+                        # 破損したイベントをスキップ
+                        corrupted_events += 1
+                        if corrupted_events <= 20:  # 20個までは許容
+                            logging.debug(f'{self.recorded_video.file_path}: Skipped corrupted event #{corrupted_events}:', exc_info=ex)
+                            continue
+                        else:
+                            # 破損イベントが多すぎる場合は諦める
+                            logging.warning(f'{self.recorded_video.file_path}: Too many corrupted events ({corrupted_events}), abandoning this position.')
+                            return None
 
                     # デフォルトで毎回設定されている情報
                     ## イベント ID
@@ -619,31 +722,11 @@ class TSInfoAnalyzer:
         if secondary_audio_language is not None:  # 音声多重放送のみ存在
             recorded_program.secondary_audio_language = secondary_audio_language
 
-        # 録画開始時刻・録画終了時刻の両方が取得できている場合
-        if (self.recorded_video.recording_start_time is not None and
-            self.recorded_video.recording_end_time is not None):
-
-            # 録画マージン (開始/終了) を算出
-            ## 取得できなかった場合はデフォルト値として 0 が自動設定される
-            ## 番組の途中から録画した/番組終了前に録画を中断したなどで録画マージンがマイナスになる場合も 0 が設定される
-            recorded_program.recording_start_margin = \
-                max((recorded_program.start_time - self.recorded_video.recording_start_time).total_seconds(), 0.0)
-            recorded_program.recording_end_margin = \
-                max((self.recorded_video.recording_end_time - recorded_program.end_time).total_seconds(), 0.0)
-
-            # 番組開始時刻 < 録画開始時刻 or 録画終了時刻 < 番組終了時刻 の場合、部分的に録画されていることを示すフラグを立てる
-            ## 番組全編を録画するには、録画開始時刻が番組開始時刻よりも前で、録画終了時刻が番組終了時刻よりも後である必要がある
-            if (recorded_program.start_time < self.recorded_video.recording_start_time or
-                self.recorded_video.recording_end_time < recorded_program.end_time):
-                recorded_program.is_partially_recorded = True
-            else:
-                recorded_program.is_partially_recorded = False
-
         return recorded_program
 
 
-    @staticmethod
-    def readPSIData(reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
+    @classmethod
+    def __readPSIData(cls, reader: BufferedReader, target_pids: list[int], callback: Callable[[float, int, bytes], bool]) -> bool:
         """
         書庫から PSI/SI セクションを取り出す
 

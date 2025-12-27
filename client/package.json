@@ -1,6 +1,6 @@
 {
     "name": "KonomiTV",
-    "version": "0.12.0",
+    "version": "0.13.0-dev",
     "private": true,
     "scripts": {
         "akebi": "run-script-os",
@@ -9,7 +9,8 @@
         "dev": "concurrently --raw \"npm:akebi\" \"vite\"",
         "build": "vue-tsc --noEmit && vite build",
         "preview": "concurrently --raw \"npm:akebi\" \"vite preview\"",
-        "lint": "eslint . --fix --ignore-path .gitignore"
+        "lint": "eslint . --fix --ignore-path .gitignore",
+        "typecheck": "vue-tsc --noEmit"
     },
     "engines": {
         "node": "20.16.0"
@@ -17,18 +18,18 @@
     "dependencies": {
         "@github/mini-throttle": "^2.1.1",
         "@microsoft/fetch-event-source": "^2.0.1",
-        "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.1",
+        "@tsukumijima/aribts": "github:tsukumijima/node-aribts#v1.5.2",
         "assert": "^2.1.0",
-        "axios": "^1.8.2",
+        "axios": "^1.12.0",
         "buffer": "^6.0.3",
         "comlink": "^4.4.1",
         "copy-image-clipboard": "^2.1.2",
         "dayjs": "^1.11.13",
-        "dplayer": "github:tsukumijima/DPlayer#v1.32.3",
+        "dplayer": "github:tsukumijima/DPlayer#v1.32.7",
         "floating-vue": "^5.2.2",
-        "hls.js": "^1.6.0-beta.3",
+        "hls.js": "^1.6.9",
         "mitt": "^3.0.1",
-        "mpegts.js": "github:tsukumijima/mpegts.js#05252cf94aed0626876facb2803af8afde2f4ac4",
+        "mpegts.js": "github:tsukumijima/mpegts.js#726d91becfa178a68bbea154175213ab6b3dfdba",
         "nanoid": "^5.0.9",
         "ohash": "^1.1.3",
         "piexifjs": "^2.0.0-beta.9",
@@ -43,7 +44,7 @@
         "vue-virtual-scroller": "^2.0.0-beta.8",
         "vuedraggable": "^4.1.0",
         "vuetify": "~3.7.1",
-        "web-bml": "github:tsukumijima/web-bml#6849e03550e82f1e7822574b4e84bc112b5c2069"
+        "web-bml": "github:tsukumijima/web-bml#34af8bc86577a84cb328f66639b28887dd0cef24"
     },
     "devDependencies": {
         "@babel/types": "^7.25.4",
@@ -68,7 +69,7 @@
         "run-script-os": "^1.1.6",
         "sass": "1.77.6",
         "typescript": "~5.5.4",
-        "vite": "^5.4.19",
+        "vite": "^5.4.21",
         "vite-plugin-comlink": "^5.0.1",
         "vite-plugin-pwa": "^0.20.1",
         "vite-plugin-vuetify": "^2.0.4",
