@@ -1,6 +1,8 @@
 
 import { AxiosResponseHeaders, RawAxiosResponseHeaders } from 'axios';
 
+import useSettingsStore from '@/stores/SettingsStore';
+
 
 /**
  * 共通ユーティリティ
@@ -22,6 +24,13 @@ export default class Utils {
             return `${self.location.protocol}//${self.location.host}/api`;
         }
     })();
+
+    // パフォーマンス最適化のため、apply28HourClock() で利用する正規表現を事前コンパイル
+    private static readonly date_week_time_pattern = /(\d{4})\/(\d{2})\/(\d{2})\s+\((.)\)\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly date_time_pattern = /(\d{4})\/(\d{2})\/(\d{2})\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly month_day_time_pattern = /(\d{2})\/(\d{2})\s+([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly standalone_time_pattern = /(^|[^0-9])([0-2]\d):(\d{2})(?::(\d{2}))?/g;
+    private static readonly time_quick_pattern = /([0-2]\d):\d{2}/;
 
 
     /**
@@ -78,6 +87,99 @@ export default class Utils {
      */
     static CtrlOrCmd(): 'Ctrl' | 'Cmd' {
         return Utils.isMacOS() ? 'Cmd' : 'Ctrl';
+    }
+
+
+    /**
+     * 28 時間表記を適用する
+     * 与えられた文字列内の時刻表記 (HH:mm / HH:mm:ss / YYYY/MM/DD (dd) HH:mm[:ss] / YYYY/MM/DD HH:mm[:ss]) を検出し、
+     * 0〜3 時台を 24〜27 に置換する。日付・曜日を含む場合は 1 日前に補正する。
+     * @param text 入力文字列
+     * @returns 変換後の文字列
+     */
+    static apply28HourClock(text: string): string {
+        const settings_store = useSettingsStore();
+        if (settings_store.settings.use_28hour_clock !== true) {
+            return text;
+        }
+
+        // 時刻が含まれていなければ早期リターン（軽量化）
+        if (Utils.time_quick_pattern.test(text) === false) {
+            return text;
+        }
+
+        // ユーティリティ: 日付文字列 YYYY/MM/DD を 1 日戻す
+        const prevDateStr = (y: number, m: number, d: number, withWeek: boolean): string => {
+            const date = new Date(y, m - 1, d);
+            date.setDate(date.getDate() - 1);
+            const yy = date.getFullYear();
+            const mm = String(date.getMonth() + 1).padStart(2, '0');
+            const dd = String(date.getDate()).padStart(2, '0');
+            if (withWeek) {
+                const weeks = '日月火水木金土';
+                const w = weeks[date.getDay()];
+                return `${yy}/${mm}/${dd} (${w})`;
+            }
+            return `${yy}/${mm}/${dd}`;
+        };
+
+        // 1) YYYY/MM/DD (w) HH:mm[:ss]
+        text = text.replace(Utils.date_week_time_pattern,
+            (_m, y, m, d, _w, hh, mm, ss) => {
+                const hour = parseInt(hh, 10);
+                if (hour >= 0 && hour <= 3) {
+                    const newDate = prevDateStr(parseInt(y, 10), parseInt(m, 10), parseInt(d, 10), true);
+                    const newH = String(hour + 24).padStart(2, '0');
+                    return `${newDate} ${newH}:${mm}${ss ? `:${ss}` : ''}`;
+                }
+                return `${y}/${m}/${d} (${_w}) ${hh}:${mm}${ss ? `:${ss}` : ''}`;
+            }
+        );
+
+        // 2) YYYY/MM/DD HH:mm[:ss]
+        text = text.replace(Utils.date_time_pattern,
+            (_m, y, m, d, hh, mm, ss) => {
+                const hour = parseInt(hh, 10);
+                if (hour >= 0 && hour <= 3) {
+                    const newDate = prevDateStr(parseInt(y, 10), parseInt(m, 10), parseInt(d, 10), false);
+                    const newH = String(hour + 24).padStart(2, '0');
+                    return `${newDate} ${newH}:${mm}${ss ? `:${ss}` : ''}`;
+                }
+                return `${y}/${m}/${d} ${hh}:${mm}${ss ? `:${ss}` : ''}`;
+            }
+        );
+
+        // 3) MM/DD HH:mm[:ss]
+        const baseYear = new Date().getFullYear();
+        text = text.replace(Utils.month_day_time_pattern,
+            (_m, m, d, hh, mm, ss) => {
+                const hour = parseInt(hh, 10);
+                if (hour >= 0 && hour <= 3) {
+                    // 年は表示されないため、現在年を基準に日付計算のみ行う
+                    const date = new Date(baseYear, parseInt(m, 10) - 1, parseInt(d, 10));
+                    date.setDate(date.getDate() - 1);
+                    const mm2 = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd2 = String(date.getDate()).padStart(2, '0');
+                    const newH = String(hour + 24).padStart(2, '0');
+                    return `${mm2}/${dd2} ${newH}:${mm}${ss ? `:${ss}` : ''}`;
+                }
+                return `${m}/${d} ${hh}:${mm}${ss ? `:${ss}` : ''}`;
+            }
+        );
+
+        // 4) standalone HH:mm[:ss]
+        text = text.replace(Utils.standalone_time_pattern,
+            (_m, pre, hh, mm, ss) => {
+                const hour = parseInt(hh, 10);
+                if (hour >= 0 && hour <= 3) {
+                    const newH = String(hour + 24).padStart(2, '0');
+                    return `${pre}${newH}:${mm}${ss ? `:${ss}` : ''}`;
+                }
+                return `${pre}${hh}:${mm}${ss ? `:${ss}` : ''}`;
+            }
+        );
+
+        return text;
     }
 
 
@@ -160,18 +262,25 @@ export default class Utils {
     /**
      * バイト単位の数値をフォーマットする
      * @param bytes バイト数
+     * @param decimal_places 小数点以下の桁数
+     * @param gb_only GB 単位でのみフォーマットするかどうか
      * @returns フォーマットされた文字列 (例: 1.23KB)
      */
-    static formatBytes(bytes: number): string {
-        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        let unitIndex = 0;
-
-        while (bytes >= 1000 && unitIndex < units.length - 1) {
-            bytes /= 1000;
-            unitIndex++;
+    static formatBytes(bytes: number, decimal_places: number = 2, gb_only: boolean = false): string {
+        if (gb_only) {
+            const gb_bytes = bytes / (1024 * 1024 * 1024);
+            return `${gb_bytes.toFixed(decimal_places)}GB`;
         }
 
-        return `${bytes.toFixed(2)}${units[unitIndex]}`;
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let unit_index = 0;
+
+        while (bytes >= 1024 && unit_index < units.length - 1) {
+            bytes /= 1024;
+            unit_index++;
+        }
+
+        return `${bytes.toFixed(decimal_places)}${units[unit_index]}`;
     }
 
 
@@ -351,7 +460,7 @@ export default class Utils {
 
 
     /**
-     * async/await でスリープ的なもの
+     * async/await で秒単位でスリープする
      * @param seconds 待機する秒数 (ミリ秒単位ではないので注意)
      * @returns Promise を返すので、await sleep(1); のように使う
      */

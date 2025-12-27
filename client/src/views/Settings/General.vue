@@ -43,11 +43,21 @@
             <div class="settings__item settings__item--switch">
                 <label class="settings__item-heading" for="tv_channel_selection_requires_alt_key">チャンネル選局のキーボードショートカットを {{Utils.AltOrOption()}} + 数字キー/テンキーに変更する</label>
                 <label class="settings__item-label" for="tv_channel_selection_requires_alt_key">
-                    この設定をオンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替えるとき、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
+                    オンにすると、数字キーまたはテンキーに対応するリモコン番号（1～12）のチャンネルに切り替えるとき、{{Utils.AltOrOption()}} キーを同時に押す必要があります。<br>
                     コメントやツイートを入力しようとして誤って数字キーを押してしまい、チャンネルが変わってしまう事態を避けたい方におすすめです。<br>
                 </label>
                 <v-switch class="settings__item-switch" color="primary" id="tv_channel_selection_requires_alt_key" hide-details
                     v-model="settingsStore.settings.tv_channel_selection_requires_alt_key">
+                </v-switch>
+            </div>
+            <div class="settings__item settings__item--switch">
+                <label class="settings__item-heading" for="use_28hour_clock">時刻を 28 時間表記で表示する</label>
+                <label class="settings__item-label" for="use_28hour_clock">
+                    深夜番組でよく使われる 28 時間表記 (24 時 〜 27 時) で時刻を表示します。デフォルトはオフです。<br>
+                    オンにすると、午前 0 時 〜 3 時が前日の 24 時 〜 27 時と表示され、深夜番組の放送時間がよりわかりやすくなります。<br>
+                </label>
+                <v-switch class="settings__item-switch" color="primary" id="use_28hour_clock" hide-details
+                    v-model="settingsStore.settings.use_28hour_clock">
                 </v-switch>
             </div>
             <v-divider class="mt-6"></v-divider>

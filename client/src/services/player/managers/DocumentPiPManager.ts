@@ -69,8 +69,7 @@ class DocumentPiPManager implements PlayerManager {
 
         // DPlayer 上で Picture-in-Picture が開始された際のイベントを登録
         // HTMLVideoElement.requestPictureInPicture() に上書きしてイベントハンドラーを登録している
-        this.request_picture_in_picture = this.player.video.requestPictureInPicture;  // 元のメソッドを退避
-        this.player.video.requestPictureInPicture = async () => {
+        const new_request_picture_in_picture = async () => {
 
             // すでに Document Picture-in-Picture が開始されている場合は終了
             // この時 Document Picture-in-Picture ウインドウでは pagehide イベントが発火する
@@ -83,6 +82,8 @@ class DocumentPiPManager implements PlayerManager {
             // ref: https://document-picture-in-picture-api.glitch.me/script.js
             // ref: https://developer.chrome.com/docs/web-platform/document-picture-in-picture
             // ref: https://medium.com/@abhishek_guy/guide-to-use-the-document-picture-in-picture-api-51ecfac058f7
+            // Chrome 134 以降では、条件を満たす場合、KonomiTV からタブを切り替えた際に自動的に Document Picture-in-Picture が開始される
+            // ref: https://developer.chrome.com/blog/automatic-picture-in-picture-media-playback?hl=ja
 
             // Document Picture-in-Picture ウインドウが表示された時のイベントを登録
             // すでに登録されている場合は上書きされる
@@ -195,7 +196,8 @@ class DocumentPiPManager implements PlayerManager {
             keyboard_shortcut_manager.init();  // 完了を待たない
 
             // Document Picture-in-Picture ウインドウが閉じられた際のイベントを登録
-            pip_window.addEventListener('pagehide', () => {
+            // すでに登録されている場合は上書きされる
+            pip_window.onpagehide = async () => {
                 player_store.is_document_pip = false;
                 // キーボードショートカットを削除
                 keyboard_shortcut_manager.destroy();  // 完了を待たない
@@ -205,10 +207,26 @@ class DocumentPiPManager implements PlayerManager {
                 this.watch_content_element.append(this.watch_header_element);
                 this.watch_content_element.append(this.watch_player_element);
                 console.log('[DocumentPiPManager] Picture-in-Picture window exited.');
-            });
+            };
 
             return {} as PictureInPictureWindow;  // 無理やり PictureInPictureWindow 型にキャスト
         };
+
+        // オリジナルのブラウザネイティブ実装の HTMLVideoElement.requestPictureInPicture() メソッドを退避
+        this.request_picture_in_picture = this.player.video.requestPictureInPicture;
+        // 独自のフックで上書きする
+        this.player.video.requestPictureInPicture = new_request_picture_in_picture;
+
+        // 画質切り替え後に新しい映像要素が生成されるため、画質切り替え後に再度フックする
+        this.player.on('quality_end', () => {
+            if (!this.player || !this.player.video) {
+                return;
+            }
+            // 画質切り替え後の this.player.video は切り替え前の this.player.video とは
+            // 異なる HTMLVideoElement のインスタンスとなるため、再度オリジナルの関数を退避した上で、独自のフックを適用する
+            this.request_picture_in_picture = this.player.video.requestPictureInPicture;
+            this.player.video.requestPictureInPicture = new_request_picture_in_picture;
+        });
 
         console.log('[DocumentPiPManager] Initialized.');
     }

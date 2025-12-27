@@ -127,8 +127,8 @@ export default defineConfig({
             workbox: {
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
-                // /api/ 以下のリクエストでは index.html を返さない
-                navigateFallbackDenylist: [/^\/api/, /^\/wholech/],
+                // /api/, /cdn-cgi/(cloudflare) 以下のリクエストでは index.html を返さない
+                navigateFallbackDenylist: [/^\/api/, /^\/cdn-cgi/, /^\/wholech/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }
