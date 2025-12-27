@@ -59,7 +59,7 @@ class CMSectionsDetector:
 
             # 検出結果をログに出力
             for cm_section in cm_sections:
-                logging.debug_simple(f'{self.file_path}: CM section detected: {cm_section["start_time"]} - {cm_section["end_time"]}')
+                logging.debug(f'{self.file_path}: CM section detected: {cm_section["start_time"]} - {cm_section["end_time"]}')
 
             # 検出結果をデータベースに保存
             ## ファイルパスから対応する RecordedVideo レコードを取得
@@ -150,7 +150,7 @@ class CMSectionsDetector:
             except Exception as ex:
                 # パースに失敗した場合は採用しない
                 # 当該行だけ飛ばすこともできるが整合性が崩れる可能性が高いため、自前で CM 区間を検出した方が確実
-                logging.warning(f'{chapter_file_path}: Failed to parse chapter data (line {i}-{i+1}): {time_line}, {name_line}', exc_info=ex)
+                logging.warning(f'{chapter_file_path}: Failed to parse chapter data. (line {i}-{i+1}): {time_line}, {name_line}', exc_info=ex)
                 return None
 
         # CM 区間を検出

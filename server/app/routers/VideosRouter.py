@@ -148,7 +148,7 @@ async def GetRecordedProgram(video_id: Annotated[int, Path(description='録画�
         .select_related('channel') \
         .get_or_none(id=video_id)
     if recorded_program is None:
-        logging.error(f'[VideosRouter][GetRecordedProgram] Specified video_id was not found [video_id: {video_id}]')
+        logging.error(f'[VideosRouter][GetRecordedProgram] Specified video_id was not found. [video_id: {video_id}]')
         raise HTTPException(
             status_code = status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail = 'Specified video_id was not found',
@@ -188,25 +188,73 @@ async def GetThumbnailResponse(
             bool: 304 を返すべき場合は True
         """
 
-        # If-None-Match による判定
-        try:
-            if_none_match = request_headers['if-none-match']
-            etag = response_headers['etag']
-            if etag in [tag.strip(' W/') for tag in if_none_match.split(',')]:
-                return True
-        except KeyError:
-            pass
+        def ParseIfNoneMatch(header_value: str) -> set[str]:
+            """ If-None-Match ヘッダーを RFC 準拠の形で解析してタグ集合に変換する """
 
-        # If-Modified-Since による判定
+            tags: set[str] = set()
+            for raw_tag in header_value.split(','):
+                tag = raw_tag.strip()
+                if not tag:
+                    continue
+                if tag == '*':
+                    tags.add('*')
+                    continue
+                if tag.startswith('W/'):
+                    tag = tag[2:]
+                if len(tag) >= 2 and tag[0] == '"' and tag[-1] == '"':
+                    tag = tag[1:-1]
+                tags.add(tag)
+            return tags
+
+        # If-None-Match による判定 (優先度が最も高い)
+        if_none_match = request_headers.get('if-none-match')
+        etag = response_headers.get('etag')
+        if if_none_match is not None:
+            request_tags = ParseIfNoneMatch(if_none_match)
+            if '*' in request_tags:
+                # * はリソースが存在するなら常に 304 を返す
+                return etag is not None
+            if etag is not None:
+                normalized_etag = etag.strip('"')
+                if normalized_etag in request_tags or etag in request_tags:
+                    return True
+            # If-None-Match が存在する場合は If-Modified-Since を無視する (RFC 準拠)
+            return False
+
+        # If-Modified-Since による判定 (If-None-Match が無い場合のみ評価)
         try:
             if_modified_since = parsedate(request_headers['if-modified-since'])
             last_modified = parsedate(response_headers['last-modified'])
-            if if_modified_since is not None and last_modified is not None and if_modified_since >= last_modified:
+            if (
+                if_modified_since is not None and
+                last_modified is not None and
+                if_modified_since >= last_modified
+            ):
                 return True
         except KeyError:
             pass
 
         return False
+
+    def CreateDefaultThumbnailResponse() -> FileResponse:
+        """ 録画中 or サムネイル画像が存在しない場合に返すデフォルトのレスポンスを返す """
+
+        default_thumbnail_path = STATIC_DIR / 'thumbnails/default.webp'
+        # キャッシュさせないようにヘッダーを設定
+        headers = {
+            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
+        }
+        return FileResponse(
+            path = default_thumbnail_path,
+            media_type = 'image/webp',
+            headers = headers,
+        )
+
+    # 録画中のファイルは常にデフォルトのサムネイル画像を返す
+    if recorded_program.recorded_video.status == 'Recording':
+        return CreateDefaultThumbnailResponse()
 
     # サムネイル画像のパスを生成
     suffix = '_tile' if return_tiled else ''
@@ -222,20 +270,9 @@ async def GetThumbnailResponse(
             media_type = mime
             break
 
-    # サムネイル画像が存在しない場合はデフォルト画像を返す
+    # サムネイル画像が存在しない場合はデフォルトのサムネイル画像を返す
     if thumbnail_path is None:
-        default_thumbnail_path = STATIC_DIR / 'thumbnails/default.webp'
-        # キャッシュさせないようにヘッダーを設定
-        headers = {
-            'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-        }
-        return FileResponse(
-            path = default_thumbnail_path,
-            media_type = 'image/webp',
-            headers = headers,
-        )
+        return CreateDefaultThumbnailResponse()
 
     # サムネイル画像のファイル情報を取得
     stat_result = await thumbnail_path.stat()
@@ -253,10 +290,16 @@ async def GetThumbnailResponse(
 
     # If-None-Match と If-Modified-Since の検証
     # FileResponse が実装していない 304 判定を行う
-    if IsContentNotModified(Headers(dict(response.headers)), Headers(scope=request.scope)):
+    if IsContentNotModified(response.headers, request.headers):
+        # 304 レスポンスでは Content-Length ヘッダーを除外する必要がある
+        # （大文字小文字を区別せずにフィルタリング）
+        headers_304 = {
+            key: value for key, value in response.headers.items()
+            if key.lower() != 'content-length'
+        }
         return Response(
             status_code = 304,
-            headers = dict(response.headers),
+            headers = headers_304,
         )
 
     return response
@@ -713,20 +756,21 @@ async def VideoReanalyzeAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のメタデータ（動画情報・番組情報・キーフレーム情報・CM 区間情報など）を再解析する。<br>
-    生成に時間のかかるシークバー用サムネイルタイルは既存ファイルがあれば再利用されるが、代表サムネイルはメタデータと同時に再度生成される。
+    指定された録画番組のメタデータ（動画情報・番組情報・サムネイル画像・キーフレーム情報・CM 区間情報など）をすべて再解析・再生成する。
     """
 
     try:
-        # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
         file_path = anyio.Path(recorded_program.recorded_video.file_path)
-        async with DriveIOLimiter.getSemaphore(file_path):
-            # メタデータ再解析を実行
-            await RecordedScanTask().processRecordedFile(
-                file_path,
-                existing_db_recorded_videos = None,
-                force_update = True,
-            )
+        # メタデータ再解析を実行
+        ## wait_background_analysis = True 指定時は DriveIOLimiter を掛けるとデッドロックが発生するので、敢えて掛けない
+        ## どのみち内部で実行される RecordedScanTask で DriveIOLimiter を掛けているため、ここで掛ける必要はない
+        await RecordedScanTask().processRecordedFile(
+            file_path = file_path,
+            # 既に DB に登録されている録画ファイルのメタデータを強制的に再解析する
+            force_update = True,
+            # API レスポンスの返却をもってメタデータ再解析が完全に完了したことをユーザーに伝えるため、バックグラウンド解析タスクが完了するまで待つ
+            wait_background_analysis = True,
+        )
 
     except Exception as ex:
         logging.error(f'[VideoReanalyzeAPI] Failed to reanalyze the video_id {recorded_program.id}:', exc_info=ex)
@@ -738,7 +782,7 @@ async def VideoReanalyzeAPI(
 
 @router.get(
     '/{video_id}/thumbnail',
-    summary = '録画番組サムネイル API',
+    summary = '録画番組サムネイル画像取得 API',
     response_description = '録画番組のサムネイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
@@ -753,7 +797,7 @@ async def VideoThumbnailAPI(
 ):
     """
     指定された録画番組のサムネイル画像を取得する。<br>
-    サムネイルが生成されていない場合はデフォルト画像を返す。
+    サムネイル画像が生成されていない場合はデフォルトのサムネイル画像を返す。
     """
 
     return await GetThumbnailResponse(request, recorded_program)
@@ -761,7 +805,7 @@ async def VideoThumbnailAPI(
 
 @router.get(
     '/{video_id}/thumbnail/tiled',
-    summary = '録画番組シークバー用サムネイルタイル API',
+    summary = '録画番組シークバー用サムネイルタイル画像取得 API',
     response_description = '録画番組のシークバー用サムネイルタイル画像 (WebP または JPEG) 。',
     response_class = FileResponse,
     responses = {
@@ -775,8 +819,8 @@ async def VideoThumbnailTileAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
 ):
     """
-    指定された録画番組のシークバーサムネイル画像を取得する。<br>
-    サムネイルが生成されていない場合はデフォルト画像を返す。
+    指定された録画番組のシークバー用サムネイルタイル画像を取得する。<br>
+    サムネイル画像が生成されていない場合はデフォルトのサムネイル画像を返す。
     """
 
     return await GetThumbnailResponse(request, recorded_program, return_tiled=True)
@@ -784,16 +828,15 @@ async def VideoThumbnailTileAPI(
 
 @router.post(
     '/{video_id}/thumbnail/regenerate',
-    summary = 'サムネイル再生成 API',
+    summary = '録画番組サムネイル画像再生成 API',
     status_code = status.HTTP_204_NO_CONTENT,
 )
 async def VideoThumbnailRegenerateAPI(
     recorded_program: Annotated[RecordedProgram, Depends(GetRecordedProgram)],
-    skip_tile_if_exists: Annotated[bool, Query(description='既に存在する場合はサムネイルタイルの生成をスキップするかどうか（通常のサムネイルは再度生成する）。')] = False,
 ):
     """
-    指定された録画番組のサムネイルを再生成する。<br>
-    サムネイル生成には数分程度かかる場合がある。
+    指定された録画番組のサムネイル画像を再生成する。<br>
+    サムネイル画像の再生成には数分程度かかる場合がある。
     """
 
     try:
@@ -803,9 +846,9 @@ async def VideoThumbnailRegenerateAPI(
         # DriveIOLimiter で同一 HDD に対してのバックグラウンドタスクの同時実行数を原則1セッションに制限
         file_path = anyio.Path(recorded_program.recorded_video.file_path)
         async with DriveIOLimiter.getSemaphore(file_path):
-            # サムネイル生成を実行
+            # サムネイル画像の再生成を実行
             generator = ThumbnailGenerator.fromRecordedProgram(recorded_program_schema)
-            await generator.generateAndSave(skip_tile_if_exists=skip_tile_if_exists)
+            await generator.generateAndSave()
 
     except Exception as ex:
         logging.error(f'[VideoThumbnailRegenerateAPI] Failed to regenerate thumbnails for video_id {recorded_program.id}:', exc_info=ex)

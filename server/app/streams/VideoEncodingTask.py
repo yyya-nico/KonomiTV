@@ -10,6 +10,8 @@ import sys
 from typing import TYPE_CHECKING, ClassVar, Literal, cast
 
 from biim.mpeg2ts import ts
+from biim.mpeg2ts.h264 import H264PES
+from biim.mpeg2ts.h265 import H265PES
 from biim.mpeg2ts.packetize import packetize_pes, packetize_section
 from biim.mpeg2ts.parser import PESParser, SectionParser
 from biim.mpeg2ts.pat import PATSection
@@ -49,33 +51,17 @@ class VideoEncodingTask:
         self.video_stream = video_stream
 
         # psisimux と tsreadex とエンコーダーのプロセス
+        # cancel() メソッドから参照されるため、インスタンス変数として保持する
         self._psisimux_process: asyncio.subprocess.Process | None = None
         self._tsreadex_process: asyncio.subprocess.Process | None = None
         self._encoder_process: asyncio.subprocess.Process | None = None
+        self._tsreadex_feed_task: asyncio.Future[None] | None = None
 
         # エンコードタスクを完了済みかどうか
         self._is_finished: bool = False
 
         # 破棄されているかどうか
         self._is_cancelled: bool = False
-
-        # 現在処理中のセグメント
-        self._current_segment: VideoStreamSegment | None = None
-
-        # MPEG-TS セクションパーサーを初期化
-        self._pat_parser: SectionParser[PATSection] = SectionParser(PATSection)
-        self._pmt_parser: SectionParser[PMTSection] = SectionParser(PMTSection)
-        self._video_parser: PESParser[PES] = PESParser(PES)
-        self._audio_parser: PESParser[PES] = PESParser(PES)
-
-        # PID と CC (Continuity Counter) を管理
-        self._pmt_pid: int | None = None
-        self._pat_cc: int = 0
-        self._pmt_cc: int = 0
-        self._video_pid: int | None = None
-        self._video_cc: int = 0
-        self._audio_pid: int | None = None
-        self._audio_cc: int = 0
 
         # エンコードタスクのリトライ回数のカウント
         self._retry_count: int = 0
@@ -100,10 +86,10 @@ class VideoEncodingTask:
         options: list[str] = []
 
         # 入力ストリームの解析時間
-        analyzeduration = round(500000 + (self._retry_count * 250000))  # リトライ回数に応じて少し増やす
+        analyzeduration = round(500000 + (self._retry_count * 500000))  # リトライ回数に応じて少し増やす
         if self.video_stream.recorded_program.recorded_video.video_codec != 'MPEG-2':
-            # MPEG-2 以外のコーデックではは入力ストリームの解析時間を長めにする (その方がうまくいく)
-            analyzeduration += 500000
+            # MPEG-2 以外のコーデックでは入力ストリームの解析時間を長めにする (その方がうまくいく)
+            analyzeduration += 1000000
 
         # 入力
         ## -analyzeduration をつけることで、ストリームの分析時間を短縮できる
@@ -117,8 +103,8 @@ class VideoEncodingTask:
         ## 主に FFmpeg の起動を高速化するための設定
         ## max_interleave_delta: mux 時に影響するオプションで、ライブ再生では増やしすぎると CM で詰まりがちになる
         ## 録画再生では逆に大きめでないと映像/音声のずれが大きくなりセグメント分割時に問題が生じるため、
-        ## 5000K (5秒) に設定し、リトライ回数に応じて 500K (0.5秒) ずつ増やす
-        max_interleave_delta = round(5000 + (self._retry_count * 500))
+        ## 5000K (5秒) に設定し、リトライ回数に応じて 1000K (1秒) ずつ増やす
+        max_interleave_delta = round(5000 + (self._retry_count * 1000))
         options.append(f'-fflags nobuffer -flags low_delay -max_delay 0 -tune zerolatency -max_interleave_delta {max_interleave_delta}K -threads auto')
 
         # 映像
@@ -206,12 +192,12 @@ class VideoEncodingTask:
         options: list[str] = []
 
         # 入力ストリームの解析時間
-        input_probesize = round(1000 + (self._retry_count * 500))  # リトライ回数に応じて少し増やす
-        input_analyze = round(0.7 + (self._retry_count * 0.5), 1)  # リトライ回数に応じて少し増やす
+        input_probesize = round(1000 + (self._retry_count * 1000))  # リトライ回数に応じて少し増やす
+        input_analyze = round(0.7 + (self._retry_count * 1), 1)  # リトライ回数に応じて少し増やす
         if self.video_stream.recorded_program.recorded_video.video_codec != 'MPEG-2':
-            # MPEG-2 以外のコーデックではは入力ストリームの解析時間を長めにする (その方がうまくいく)
-            input_probesize += 1000
-            input_analyze += 4.3
+            # MPEG-2 以外のコーデックでは入力ストリームの解析時間を長めにする (その方がうまくいく)
+            input_probesize += 2000
+            input_analyze += 6.3
 
         # 入力
         ## --input-probesize, --input-analyze をつけることで、ストリームの分析時間を短縮できる
@@ -233,8 +219,8 @@ class VideoEncodingTask:
         ## 主に HWEncC の起動を高速化するための設定
         ## max_interleave_delta: mux 時に影響するオプションで、ライブ再生では増やしすぎると CM で詰まりがちになる
         ## 録画再生では逆に大きめでないと映像/音声のずれが大きくなりセグメント分割時に問題が生じるため、
-        ## 5000K (5秒) に設定し、リトライ回数に応じて 500K (0.5秒) ずつ増やす
-        max_interleave_delta = round(5000 + (self._retry_count * 500))
+        ## 5000K (5秒) に設定し、リトライ回数に応じて 1000K (1秒) ずつ増やす
+        max_interleave_delta = round(5000 + (self._retry_count * 1000))
         options.append('-m avioflags:direct -m fflags:nobuffer+flush_packets -m flush_packets:1 -m max_delay:0')
         options.append(f'-m max_interleave_delta:{max_interleave_delta}K')
         ## QSVEncC と rkmppenc では OpenCL を使用しないので、無効化することで初期化フェーズを高速化する
@@ -263,9 +249,11 @@ class VideoEncodingTask:
         ## H.265/HEVC の高圧縮化調整
         if QUALITY[quality].is_hevc is True:
             if encoder_type == 'QSVEncC':
-                options.append('--qvbr-quality 30')
+                options.append('--qvbr-quality 20 --extbrc --mbbrc --scenario-info game_streaming --tune perceptual')
+                options.append('--i-adapt --b-adapt --b-pyramid --weightp --weightb --adapt-ref --adapt-ltr --adapt-cqm')
             elif encoder_type == 'NVEncC':
-                options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --weightp --bref-mode middle --aq --aq-temporal')
+                # --weightp は過去の GPU 世代で不安定な場合があるので使用しない
+                options.append('--qp-min 23:26:30 --lookahead 16 --multipass 2pass-full --bref-mode middle --aq --aq-temporal')
 
         ## ヘッダ情報制御 (GOP ごとにヘッダを再送する)
         ## VCEEncC ではデフォルトで有効であり、当該オプションは存在しない
@@ -293,6 +281,16 @@ class VideoEncodingTask:
         else:
             options.append('--profile high')
         options.append('--dar 16:9')
+
+        ## バンディング軽減のためのオプション (速度低下を鑑みて当面 NVEncC でのみ有効にする)
+        if encoder_type == 'NVEncC':
+            options.append('--vpp-deband')
+        ## H.265/HEVC では HW エンコーダーが対応している場合は 10bit でエンコードし、さらにバンディング耐性を高める
+        ## (VCEEncC は 10bit 対応の機種かを判定できず、rkmppenc は 10bit エンコード自体に非対応のため設定しない)
+        ## TODO: 思ったより 10bit HEVC デコードに対応してない Android タブレットが多そうなので個別調整できるようになるまで無効化
+        ## ref: https://github.com/tsukumijima/KonomiTV/pull/164#issuecomment-3368738859
+        # if QUALITY[quality].is_hevc is True and (encoder_type == 'QSVEncC' or encoder_type == 'NVEncC'):
+        #     options.append('--output-depth 10 --fallback-bitdepth')
 
         ## インターレース映像のみ
         if self.video_stream.recorded_program.recorded_video.video_scan_type == 'Interlaced':
@@ -384,15 +382,15 @@ class VideoEncodingTask:
 
         # 処理対象の VideoStreamSegment を取得し、エンコード中状態に設定
         current_sequence = start_sequence
-        self._current_segment = self.video_stream.segments[current_sequence]
-        self._current_segment.encode_status = 'Encoding'
+        current_segment: VideoStreamSegment = self.video_stream.segments[current_sequence]
+        current_segment.encode_status = 'Encoding'
         logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Starting the Encoder...')
 
         # エンコーダーに渡す出力 TS のタイムスタンプオフセットを算出
         output_ts_offset: float = 0.0
         for kf in self.video_stream.recorded_program.recorded_video.key_frames:
             # セグメント開始位置よりも後のキーフレームは採用せず、直前の DTS を記録
-            if kf['offset'] > self._current_segment.start_file_position:
+            if kf['offset'] > current_segment.start_file_position:
                 break
             output_ts_offset = kf['dts'] / ts.HZ  # 秒単位
 
@@ -409,23 +407,25 @@ class VideoEncodingTask:
             # 最大 MAX_RETRY_COUNT 回までリトライする
             while self._retry_count < self.MAX_RETRY_COUNT:
 
-               # 念のため MPEG-TS セクションパーサーを初期化
-                self._pat_parser: SectionParser[PATSection] = SectionParser(PATSection)
-                self._pmt_parser: SectionParser[PMTSection] = SectionParser(PMTSection)
-                self._video_parser: PESParser[PES] = PESParser(PES)
-                self._audio_parser: PESParser[PES] = PESParser(PES)
+                # MPEG-TS セクションパーサーを初期化
+                pat_parser: SectionParser[PATSection] = SectionParser(PATSection)
+                pmt_parser: SectionParser[PMTSection] = SectionParser(PMTSection)
+                video_parser: PESParser[PES] = PESParser(PES)
+                audio_parser: PESParser[PES] = PESParser(PES)
                 # PID と CC (Continuity Counter) をリセット
-                self._pmt_pid = None
-                self._pat_cc = 0
-                self._pmt_cc = 0
-                self._video_pid = None
-                self._video_cc = 0
-                self._audio_pid = None
-                self._audio_cc = 0
+                pmt_pid: int | None = None
+                pat_cc: int = 0
+                pmt_cc: int = 0
+                video_pid: int | None = None
+                video_cc: int = 0
+                audio_pid: int | None = None
+                audio_cc: int = 0
 
                 # 録画ファイルが MPEG-4 形式の場合、psisimux で MPEG-TS に変換し、
                 # TS ファイル入力の代わりに psisimux からの出力を tsreadex への入力として渡す
                 psisimux_read_pipe = None
+                # MPEG-TS のすべてのセグメントで PAT/PMT を確実に取得するための前処理用
+                initial_pat_pmt_data: bytes | None = None
                 if self.video_stream.recorded_program.recorded_video.container_format == 'MPEG-4':
                     assert file is None
 
@@ -440,7 +440,7 @@ class VideoEncodingTask:
                             f'{self.video_stream.recorded_program.channel.network_id}/' \
                             f'{self.video_stream.recorded_program.channel.transport_stream_id}/' \
                             f'{self.video_stream.recorded_program.channel.service_id}',
-                        # 文字コードが UTF-8 の字幕を ARIB8 単位符号に変換する
+                        # 文字コードが UTF-8 の字幕を ARIB 規格の8単位符号に変換する
                         '-8',
                         # 字幕ファイルの拡張子
                         '-x', '.vtt',
@@ -464,9 +464,117 @@ class VideoEncodingTask:
                     # psisimux の書き込み用パイプを閉じる
                     os.close(psisimux_write_pipe)
                 else:
-                    # ファイルポインタを移動
                     assert file is not None
-                    file.seek(self._current_segment.start_file_position)
+
+                    # セグメント開始位置から遡る範囲を計算（最大 5000 パケット、ただしファイル先頭は超えない）
+                    max_lookback_bytes = 188 * 5000  # 5000 パケット分
+                    search_start_pos = max(0, current_segment.start_file_position - max_lookback_bytes)
+                    search_end_pos = current_segment.start_file_position
+
+                    # 探索範囲のデータを読み込む
+                    file.seek(search_start_pos)
+                    search_data = file.read(search_end_pos - search_start_pos)
+
+                    # PAT/PMT を抽出（セグメント開始位置に最も近いものを保持）
+                    temp_pat_parser = SectionParser(PATSection)
+                    temp_pmt_parser = SectionParser(PMTSection)
+                    temp_pmt_pid: int | None = None
+
+                    # 最もセグメント開始位置に近い PAT/PMT を保持
+                    closest_pat_packet: bytes | None = None
+                    closest_pmt_packet: bytes | None = None
+                    closest_pat_distance = float('inf')
+                    closest_pmt_distance = float('inf')
+
+                    # TS パケットを1つずつ処理
+                    offset = 0
+                    while offset + 188 <= len(search_data):
+                        # 同期バイトを探す
+                        if search_data[offset] != ts.SYNC_BYTE[0]:
+                            offset += 1
+                            continue
+
+                        # 188 バイト先 (必要であればさらに 188 バイト先) の同期バイトを確認し、TS パケット境界であるか検証する
+                        is_aligned = True
+                        next_offset = offset + 188
+                        if next_offset < len(search_data) and search_data[next_offset] != ts.SYNC_BYTE[0]:
+                            is_aligned = False
+                        second_offset = offset + 376
+                        if is_aligned is True and second_offset < len(search_data) and search_data[second_offset] != ts.SYNC_BYTE[0]:
+                            is_aligned = False
+                        if is_aligned is False:
+                            offset += 1
+                            continue
+
+                        packet = search_data[offset:offset + 188]
+                        pid = ts.pid(packet)
+
+                        # 現在のパケットの実際のファイル位置
+                        current_file_pos = search_start_pos + offset
+                        distance = abs(current_file_pos - current_segment.start_file_position)
+
+                        # PAT (PID 0x00)
+                        if pid == 0x00:
+                            temp_pat_parser.push(packet)
+                            for pat in temp_pat_parser:
+                                if pat.CRC32() == 0:
+                                    # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
+                                    if current_file_pos <= current_segment.start_file_position:
+                                        # 開始位置以前の PAT を優先（より近いものに更新）
+                                        if closest_pat_packet is None or distance < closest_pat_distance:
+                                            closest_pat_packet = packet
+                                            closest_pat_distance = distance
+                                            # PMT の PID を取得
+                                            for program_number, program_map_pid in pat:
+                                                if program_number != 0:
+                                                    temp_pmt_pid = program_map_pid
+                                                    break
+                                    elif closest_pat_packet is None:
+                                        # 開始位置以前に PAT が見つからなかった場合のフォールバック
+                                        closest_pat_packet = packet
+                                        closest_pat_distance = distance
+                                        for program_number, program_map_pid in pat:
+                                            if program_number != 0:
+                                                temp_pmt_pid = program_map_pid
+                                                break
+                                    break
+
+                        # PMT
+                        elif temp_pmt_pid is not None and pid == temp_pmt_pid:
+                            temp_pmt_parser.push(packet)
+                            for pmt in temp_pmt_parser:
+                                if pmt.CRC32() == 0:
+                                    # セグメント開始位置により近い場合、または開始位置以前で最も近い場合は更新
+                                    if current_file_pos <= current_segment.start_file_position:
+                                        # 開始位置以前の PMT を優先（より近いものに更新）
+                                        if closest_pmt_packet is None or distance < closest_pmt_distance:
+                                            closest_pmt_packet = packet
+                                            closest_pmt_distance = distance
+                                    elif closest_pmt_packet is None:
+                                        # 開始位置以前に PMT が見つからなかった場合のフォールバック
+                                        closest_pmt_packet = packet
+                                        closest_pmt_distance = distance
+                                    break
+
+                        offset += 188
+
+                    # PAT/PMT が両方見つかった場合のみ使用
+                    if closest_pat_packet is not None and closest_pmt_packet is not None:
+                        initial_pat_pmt_data = closest_pat_packet + closest_pmt_packet
+                        logging.info(
+                            f'{self.video_stream.log_prefix}[Segment {current_sequence}] '
+                            f'Extracted PAT/PMT (PAT at -{closest_pat_distance} bytes, PMT at -{closest_pmt_distance} bytes)'
+                        )
+                    else:
+                        logging.warning(
+                            f'{self.video_stream.log_prefix}[Segment {current_sequence}] '
+                            f'Failed to extract complete PAT/PMT '
+                            f'(PAT: {"found" if closest_pat_packet else "not found"}, '
+                            f'PMT: {"found" if closest_pmt_packet else "not found"})'
+                        )
+
+                    # 実際のセグメント開始位置にシーク
+                    file.seek(current_segment.start_file_position)
 
                 # tsreadex のオプション
                 ## 放送波の前処理を行い、エンコードを安定させるツール
@@ -509,13 +617,83 @@ class VideoEncodingTask:
                 # tsreadex の読み込み用パイプと書き込み用パイプを作成
                 tsreadex_read_pipe, tsreadex_write_pipe = os.pipe()
 
-                # tsreadex のプロセスを作成・実行
-                self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
-                    LIBRARY_PATH['tsreadex'], *tsreadex_options,
-                    stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
-                    stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
-                    stderr = asyncio.subprocess.DEVNULL,  # 利用しない
-                )
+                # MPEG-TS を処理する場合で、直前に PAT/PMT を抽出できた場合
+                # PAT/PMT を先頭に加えて tsreadex に入力する
+                if initial_pat_pmt_data is not None:
+                    # PAT/PMT を先頭に加えた TS データ用の読み込み用パイプと書き込み用パイプを作成
+                    tsreadex_stdin_read, tsreadex_stdin_write = os.pipe()
+                    pat_pmt_data: bytes = initial_pat_pmt_data
+
+                    def FeedTSStream() -> None:
+                        """PAT/PMT を先頭に付加したデータを tsreadex のパイプに流し込む (同期関数)"""
+
+                        def WriteAllToPipe(pipe_fd: int, data: bytes) -> None:
+                            """パイプに対して全バイトを書き込む"""
+                            offset_local = 0
+                            while offset_local < len(data):
+                                written_bytes = os.write(pipe_fd, data[offset_local:])
+                                if written_bytes == 0:
+                                    raise RuntimeError('Failed to write data to tsreadex pipe.')
+                                offset_local += written_bytes
+
+                        try:
+                            # まず PAT/PMT を書き込む
+                            WriteAllToPipe(tsreadex_stdin_write, pat_pmt_data)
+                            # 次にファイルから読み込んだデータを書き込む
+                            ## initial_pat_pmt_data が作られているのは MPEG-TS のときだから
+                            ## psisimux からの入力を想定する必要はない
+                            assert file is not None
+                            chunk_size = 188 * 10000  # 10000 パケットずつ読み込む
+                            while True:
+                                # tsreadex プロセス終了時は速やかにループを抜ける
+                                if self._tsreadex_process is None or self._tsreadex_process.returncode is not None:
+                                    break
+                                chunk = file.read(chunk_size)
+                                if not chunk:
+                                    break
+                                WriteAllToPipe(tsreadex_stdin_write, chunk)
+                        except BrokenPipeError:
+                            # tsreadex プロセスが終了した場合（正常なシャットダウン or エラー）
+                            pass
+                        except ValueError as ex:
+                            # ファイルが閉じられた場合（サーバーシャットダウン時など）
+                            if 'closed file' in str(ex):
+                                pass  # 正常なシャットダウンなので何もしない
+                            else:
+                                logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
+                        except Exception as ex:
+                            logging.error(f'{self.video_stream.log_prefix} Error feeding data to tsreadex:', exc_info=ex)
+                        finally:
+                            try:
+                                os.close(tsreadex_stdin_write)
+                            except Exception:
+                                pass
+
+                    # tsreadex のプロセスを作成・実行
+                    self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
+                        LIBRARY_PATH['tsreadex'], *tsreadex_options,
+                        stdin = tsreadex_stdin_read,  # PAT/PMT が付加されたデータ
+                        stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                        stderr = asyncio.subprocess.DEVNULL,
+                    )
+
+                    # パイプの read 側は子プロセスに渡したので、親プロセス側でクローズする
+                    # 子プロセスに FD を渡した後、親プロセス側で使わない FD はクローズする必要がある
+                    # これを忘れるとファイルディスクリプタがリークする
+                    os.close(tsreadex_stdin_read)
+
+                    # tsreadex に PAT/PMT を先頭に付加した TS ストリームを流し込むタスクを ThreadPoolExecutor で実行
+                    # 同期関数のため run_in_executor() を使ってスレッドプールに投げることで、非同期で実行する
+                    loop = asyncio.get_running_loop()
+                    self._tsreadex_feed_task = loop.run_in_executor(None, FeedTSStream)
+                else:
+                    # tsreadex のプロセスを作成・実行
+                    self._tsreadex_process = await asyncio.subprocess.create_subprocess_exec(
+                        LIBRARY_PATH['tsreadex'], *tsreadex_options,
+                        stdin = file or psisimux_read_pipe,  # シークされたファイルポインタか psisimux からの入力を渡す
+                        stdout = tsreadex_write_pipe,  # エンコーダーに繋ぐ
+                        stderr = asyncio.subprocess.DEVNULL,
+                    )
 
                 # tsreadex の書き込み用パイプを閉じる
                 os.close(tsreadex_write_pipe)
@@ -561,6 +739,18 @@ class VideoEncodingTask:
 
                 # 新しいセグメントのエンコードを開始するため、バッファをリセット
                 encoded_segment = bytearray()
+                # セグメント境界を IDR/CRA に合わせるためのフラグ
+                is_split_pending = False
+
+                # PTS/DTS の 33bit ラップアラウンドを展開して、DB に保存されている ffprobe の単調増加 DTS に合わせる
+                ## ffmpeg/ffprobe は 2^33 を超えた場合も内部的に単調増加の DTS として扱うため、
+                ## DB 側のキーフレーム DTS は“展開された”値で保存されているはず
+                ## 一方 MPEG-TS 自体の PTS/DTS は 33bit に制限されているので、ここで wrap を数えて展開する
+                first_video_timestamp_33bit: int | None = None
+                last_video_timestamp_33bit: int | None = None
+                wrap_offset_ticks: int = 0
+                # エンコードタスク開始時点のセグメント開始 DTS を保存しておく
+                first_segment_start_dts: int = current_segment.start_dts
 
                 while True:
                     # エンコードタスクがキャンセルされた場合、処理を中断する
@@ -607,8 +797,8 @@ class VideoEncodingTask:
 
                     # PAT (Program Association Table)
                     if pid == 0x00:
-                        self._pat_parser.push(packet)
-                        for pat in self._pat_parser:
+                        pat_parser.push(packet)
+                        for pat in pat_parser:
                             if pat.CRC32() != 0:
                                 continue
                             latest_pat = pat
@@ -617,17 +807,17 @@ class VideoEncodingTask:
                             for program_number, program_map_pid in pat:
                                 if program_number == 0:
                                     continue
-                                self._pmt_pid = program_map_pid
+                                pmt_pid = program_map_pid
 
                             # PAT を再構築して candidate に追加
-                            for packet in packetize_section(pat, False, False, 0, 0, self._pat_cc):
+                            for packet in packetize_section(pat, False, False, 0, 0, pat_cc):
                                 encoded_segment += packet
-                                self._pat_cc = (self._pat_cc + 1) & 0x0F
+                                pat_cc = (pat_cc + 1) & 0x0F
 
                     # PMT (Program Map Table)
-                    elif pid == self._pmt_pid:
-                        self._pmt_parser.push(packet)
-                        for pmt in self._pmt_parser:
+                    elif pid == pmt_pid:
+                        pmt_parser.push(packet)
+                        for pmt in pmt_parser:
                             if pmt.CRC32() != 0:
                                 continue
                             latest_pmt = pmt
@@ -635,76 +825,137 @@ class VideoEncodingTask:
                             # ストリームの PID を取得
                             for stream_type, elementary_pid, _ in pmt:
                                 if stream_type == 0x1b:  # H.264
-                                    if self._video_pid is None:
-                                        self._video_pid = elementary_pid
-                                        logging.debug_simple(f'{self.video_stream.log_prefix} H.264 PID: 0x{elementary_pid:04x}')
+                                    if video_pid is None:
+                                        video_pid = elementary_pid
+                                        # H.264 映像 PES を解析できるようパーサーを差し替える
+                                        video_parser = PESParser(H264PES)
+                                        logging.debug(f'{self.video_stream.log_prefix} H.264 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x24:  # H.265
-                                    if self._video_pid is None:
-                                        self._video_pid = elementary_pid
-                                        logging.debug_simple(f'{self.video_stream.log_prefix} H.265 PID: 0x{elementary_pid:04x}')
+                                    if video_pid is None:
+                                        video_pid = elementary_pid
+                                        # H.265 映像 PES を解析できるようパーサーを差し替える
+                                        video_parser = PESParser(H265PES)
+                                        logging.debug(f'{self.video_stream.log_prefix} H.265 PID: 0x{elementary_pid:04x}')
                                 elif stream_type == 0x0F:  # AAC
-                                    if self._audio_pid is None:
-                                        self._audio_pid = elementary_pid
-                                        logging.debug_simple(f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x}')
+                                    if audio_pid is None:
+                                        audio_pid = elementary_pid
+                                        logging.debug(f'{self.video_stream.log_prefix} AAC PID: 0x{elementary_pid:04x}')
                             # PMT を再構築して candidate に追加
-                            for packet in packetize_section(pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
+                            for packet in packetize_section(pmt, False, False, cast(int, pmt_pid), 0, pmt_cc):
                                 encoded_segment += packet
-                                self._pmt_cc = (self._pmt_cc + 1) & 0x0F
+                                pmt_cc = (pmt_cc + 1) & 0x0F
 
                     # 映像ストリーム
-                    elif pid == self._video_pid:
-                        self._video_parser.push(packet)
-                        for video in self._video_parser:
-                            current_timestamp = cast(int, video.dts() or video.pts())
-                            next_segment_start_timestamp = self._current_segment.start_dts + int(self._current_segment.duration_seconds * ts.HZ + 0.5)
+                    elif pid == video_pid:
+                        video_parser.push(packet)
+                        for video in video_parser:
+                            # 現在の PES の 33bit タイムスタンプ (DTS 優先, 90kHz)
+                            current_timestamp_33bit = cast(int, video.dts() or video.pts())
 
-                            # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ
-                            # TODO: 現在の映像 PES がキーフレームかどうかを厳密にチェックしてから、当該 PES 以前まででセグメントを確定するようにする
-                            if self._current_segment is not None and current_timestamp >= next_segment_start_timestamp:
-                                # Future がまだ未完了の場合にのみ結果を設定する
-                                if not self._current_segment.encoded_segment_ts_future.done():
-                                    self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
-                                self._current_segment.encode_status = 'Completed'
-                                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded HLS Segment.')
+                            # 最初のフレームでアンカーを確定
+                            if first_video_timestamp_33bit is None:
+                                first_video_timestamp_33bit = current_timestamp_33bit
+                                last_video_timestamp_33bit = current_timestamp_33bit
 
-                                # 次のセグメントへ移行
-                                current_sequence += 1
+                            # wrap-around 検出 (大きく逆行した場合のみ wrap とみなす)
+                            assert last_video_timestamp_33bit is not None
+                            if current_timestamp_33bit < last_video_timestamp_33bit and (last_video_timestamp_33bit - current_timestamp_33bit) > (ts.PCR_CYCLE // 2):
+                                wrap_offset_ticks += ts.PCR_CYCLE
+                            last_video_timestamp_33bit = current_timestamp_33bit
 
-                                # 最終セグメントの場合はループを抜ける
-                                if current_sequence >= len(self.video_stream.segments):
-                                    logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
-                                    break
+                            # 単調増加となるよう展開した現在の DTS (DB 上の単調増加 DTS に揃える)
+                            assert first_video_timestamp_33bit is not None
+                            current_timestamp_unwrapped = first_segment_start_dts + (current_timestamp_33bit - first_video_timestamp_33bit + wrap_offset_ticks)
 
-                                # 新しいセグメント用のデータと状態を初期化
-                                ## ここで encoded_segment は空にリセットされる
-                                logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding...')
-                                self._current_segment = self.video_stream.segments[current_sequence]
-                                self._current_segment.encode_status = 'Encoding'
-                                encoded_segment = bytearray()
+                            # Future がまだ未完了の場合にのみ実行
+                            if current_segment is not None:
+                                # 判定に用いる次セグメント開始時刻
+                                next_segment_start_timestamp = current_segment.start_dts + round(current_segment.duration_seconds * ts.HZ)
+                                # logging.debug(
+                                #     f'{self.video_stream.log_prefix} Current Timestamp: {current_timestamp_unwrapped} / '
+                                #     f'Next Segment Start Timestamp: {next_segment_start_timestamp}'
+                                # )
 
-                                # 新しいセグメントの先頭に PAT と PMT を追加
-                                if latest_pat is not None:
-                                    for packet in packetize_section(latest_pat, False, False, 0, 0, self._pat_cc):
-                                        encoded_segment += packet
-                                        self._pat_cc = (self._pat_cc + 1) & 0x0F
-                                if latest_pmt is not None:
-                                    for packet in packetize_section(latest_pmt, False, False, cast(int, self._pmt_pid), 0, self._pmt_cc):
-                                        encoded_segment += packet
-                                        self._pmt_cc = (self._pmt_cc + 1) & 0x0F
+                                # 現在の映像 PES が (H.264: IDR, H.265: IDR/CRA) フレームかを判定
+                                def _has_idr_frame(pes: PES) -> bool:
+                                    try:
+                                        if isinstance(pes, H264PES):
+                                            for ebsp in pes.ebsps:
+                                                nal_unit_type = ebsp[0] & 0x1f
+                                                if nal_unit_type == 0x05:
+                                                    return True
+                                        elif isinstance(pes, H265PES):
+                                            for ebsp in pes.ebsps:
+                                                nal_unit_type = (ebsp[0] >> 1) & 0x3f
+                                                # biim に合わせて IDR/CRA のみを採用 (BLA は除外)
+                                                if nal_unit_type in (19, 20, 21):
+                                                    return True
+                                    except Exception:
+                                        pass
+                                    return False
+                                has_idr_frame = _has_idr_frame(video)
 
-                            # PES パケットを再構築して candidate に追加
-                            for packet in packetize_pes(video, False, False, cast(int, self._video_pid), 0, self._video_cc):
+                                # 次のセグメントの開始時刻以上になったら、現在のセグメントを確定して次のセグメントへ移行
+                                is_reached_planned_boundary = (current_timestamp_unwrapped >= next_segment_start_timestamp)
+                                is_should_finalize_now = False
+                                if is_split_pending is True:
+                                    # 次に来た (H.264: IDR, H.265: IDR/CRA) フレームで確定する
+                                    if has_idr_frame:
+                                        is_should_finalize_now = True
+                                else:
+                                    if is_reached_planned_boundary is True:
+                                        if has_idr_frame:
+                                            is_should_finalize_now = True
+                                        else:
+                                            # (H.264: IDR, H.265: IDR/CRA) フレームまで現在のセグメントを延長
+                                            is_split_pending = True
+
+                                # 無事セグメントを安全に分割できる地点に到達したので、現在のセグメントを確定
+                                if is_should_finalize_now is True:
+                                    if not current_segment.encoded_segment_ts_future.done():
+                                        current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
+                                    current_segment.encode_status = 'Completed'
+                                    logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded HLS Segment.')
+
+                                    # 次のセグメントへ移行
+                                    current_sequence += 1
+
+                                    # 最終セグメントの場合はループを抜ける
+                                    if current_sequence >= len(self.video_stream.segments):
+                                        logging.info(f'{self.video_stream.log_prefix} Reached the final segment.')
+                                        break
+
+                                    # 新しいセグメント用のデータと状態を初期化
+                                    ## ここで encoded_segment は空の bytearray にリセットされる
+                                    logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Encoding...')
+                                    current_segment = self.video_stream.segments[current_sequence]
+                                    current_segment.encode_status = 'Encoding'
+                                    encoded_segment = bytearray()
+                                    is_split_pending = False
+
+                                    # 新しいセグメントの先頭に PAT と PMT を追加
+                                    if latest_pat is not None:
+                                        for packet in packetize_section(latest_pat, False, False, 0, 0, pat_cc):
+                                            encoded_segment += packet
+                                            pat_cc = (pat_cc + 1) & 0x0F
+                                    if latest_pmt is not None:
+                                        for packet in packetize_section(latest_pmt, False, False, cast(int, pmt_pid), 0, pmt_cc):
+                                            encoded_segment += packet
+                                            pmt_cc = (pmt_cc + 1) & 0x0F
+
+                            # 現在の映像 PES をパケット化して、現在処理対象のセグメントに追加
+                            for packet in packetize_pes(video, False, False, cast(int, video_pid), 0, video_cc):
                                 encoded_segment += packet
-                                self._video_cc = (self._video_cc + 1) & 0x0F
+                                video_cc = (video_cc + 1) & 0x0F
 
                     # 音声ストリーム
-                    elif pid == self._audio_pid:
-                        self._audio_parser.push(packet)
-                        for audio in self._audio_parser:
+                    elif pid == audio_pid:
+                        audio_parser.push(packet)
+                        for audio in audio_parser:
                             # PES パケットを再構築して candidate に追加
-                            for packet in packetize_pes(audio, False, False, cast(int, self._audio_pid), 0, self._audio_cc):
+                            for packet in packetize_pes(audio, False, False, cast(int, audio_pid), 0, audio_cc):
                                 encoded_segment += packet
-                                self._audio_cc = (self._audio_cc + 1) & 0x0F
+                                audio_cc = (audio_cc + 1) & 0x0F
 
                     # その他のパケット
                     else:
@@ -719,8 +970,13 @@ class VideoEncodingTask:
                     try:
                         if self._encoder_process.returncode is None:
                             self._encoder_process.kill()
-                            await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (TimeoutError, Exception) as ex:
+                            try:
+                                # プロセスの終了を待機
+                                await asyncio.wait_for(self._encoder_process.wait(), timeout=5.0)
+                            except (TimeoutError, asyncio.CancelledError):
+                                # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
+                                logging.warning(f'{self.video_stream.log_prefix} Encoder process termination wait timed out or cancelled.')
+                    except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate encoder process:', exc_info=ex)
 
                 # tsreadex プロセスを終了
@@ -728,40 +984,69 @@ class VideoEncodingTask:
                     try:
                         if self._tsreadex_process.returncode is None:
                             self._tsreadex_process.kill()
-                            await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (TimeoutError, Exception) as ex:
+                            try:
+                                # プロセスの終了を待機
+                                await asyncio.wait_for(self._tsreadex_process.wait(), timeout=5.0)
+                            except (TimeoutError, asyncio.CancelledError):
+                                # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
+                                logging.warning(f'{self.video_stream.log_prefix} tsreadex process termination wait timed out or cancelled.')
+                    except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate tsreadex process:', exc_info=ex)
+
+                    # tsreadex への入力タスクの完了を待つ
+                    # tsreadex プロセスを kill したので、パイプがクローズされてタスクは終了するはず
+                    if self._tsreadex_feed_task is not None:
+                        try:
+                            await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                        except TimeoutError:
+                            logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout.')
+                        except Exception:
+                            pass
 
                 # psisimux プロセスを終了
                 if self._psisimux_process is not None:
                     try:
                         if self._psisimux_process.returncode is None:
                             self._psisimux_process.kill()
-                            await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)  # プロセスの終了を待機
-                    except (TimeoutError, Exception) as ex:
+                            try:
+                                # プロセスの終了を待機
+                                await asyncio.wait_for(self._psisimux_process.wait(), timeout=5.0)
+                            except (TimeoutError, asyncio.CancelledError):
+                                # 稀に終了待ちがタイムアウト/キャンセルすることがあるが致命的ではない
+                                logging.warning(f'{self.video_stream.log_prefix} psisimux process termination wait timed out or cancelled.')
+                    except Exception as ex:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
                     self._psisimux_process = None
 
                 # この時点で video_pid と audio_pid が取得できていない場合、正常にエンコード済み TS が出力されていないと考えられるため、
                 # エンコーダー起動をリトライする
-                if self._video_pid is None or self._audio_pid is None:
+                if video_pid is None or audio_pid is None:
                     self._retry_count += 1
                     if self._retry_count < self.MAX_RETRY_COUNT:
                         logging.warning(f'{self.video_stream.log_prefix} Failed to get video/audio PID. Retrying... ({self._retry_count}/{self.MAX_RETRY_COUNT})')
                         # エンコーダーのデバッグログが有効な場合のみ、全てのログを出力
                         if CONFIG.general.debug_encoder is True:
-                            logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
+                            logging.debug(f'{self.video_stream.log_prefix} Encoder stderr:')
                             assert self._encoder_process.stderr is not None
                             while True:
                                 try:
                                     line = await self._encoder_process.stderr.readline()
                                     if not line:  # EOF
                                         break
-                                    logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
+                                    logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                                 except Exception:
                                     pass
+                        # リトライ前にフィードタスクの完了を待つ
+                        if self._tsreadex_feed_task is not None:
+                            try:
+                                await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                            except TimeoutError:
+                                logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout before retry.')
+                            except Exception:
+                                pass
                         self._encoder_process = None
                         self._tsreadex_process = None
+                        self._tsreadex_feed_task = None
                         continue
                     else:
                         logging.error(f'{self.video_stream.log_prefix} Failed to get video/audio PID after {self.MAX_RETRY_COUNT} retries.')
@@ -780,32 +1065,54 @@ class VideoEncodingTask:
                         logging.error(f'{self.video_stream.log_prefix} Failed to terminate psisimux process:', exc_info=ex)
                     self._psisimux_process = None
             else:
+                # フィードタスクが実行中の場合、ファイルをクローズする前に完了を待つ
+                # スレッドで file.read() 実行中に file.close() すると ValueError が発生するため
+                # 通常はリトライループ内で既に完了しているが、念のため再チェック
+                if self._tsreadex_feed_task is not None:
+                    try:
+                        # 最大2秒待機（通常は tsreadex プロセスの kill により即座に終了する）
+                        await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                    except TimeoutError:
+                        logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout, proceeding to close file.')
+                    except Exception:
+                        pass  # その他のエラーは無視
+
                 # ファイルを閉じる
                 file.close()
 
             # エンコーダーのデバッグログが有効 or リトライ失敗時のみ、全てのログを出力
-            if CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT:
-                logging.debug_simple(f'{self.video_stream.log_prefix} Encoder stderr:')
-                assert self._encoder_process is not None and self._encoder_process.stderr is not None
+            if (CONFIG.general.debug_encoder is True or self._retry_count >= self.MAX_RETRY_COUNT) and self._encoder_process is not None:
+                logging.debug(f'{self.video_stream.log_prefix} Encoder stderr:')
+                assert self._encoder_process.stderr is not None
                 while True:
                     try:
                         line = await self._encoder_process.stderr.readline()
                         if not line:  # EOF
                             break
-                        logging.debug_simple(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
+                        logging.debug(f'{self.video_stream.log_prefix} [{ENCODER_TYPE}] {line.decode("utf-8").strip()}')
                     except Exception:
                         pass
+            # finally 句の最後でクリーンアップする前に、フィードタスクの完了を待つ
+            # 通常はリトライループ内で既に完了しているが、念のため再チェック
+            if self._tsreadex_feed_task is not None:
+                try:
+                    await asyncio.wait_for(self._tsreadex_feed_task, timeout=1.0)
+                except TimeoutError:
+                    logging.warning(f'{self.video_stream.log_prefix} Feed task did not complete within timeout in finally cleanup.')
+                except Exception:
+                    pass
             self._encoder_process = None
             self._tsreadex_process = None
+            self._tsreadex_feed_task = None
 
             # このエンコードタスクがキャンセルされている場合は何もしない
             if self._is_cancelled is True:
                 return
 
             # 最後のセグメントが完了していない場合は、現在のバッファを future にセット
-            if self._current_segment is not None and not self._current_segment.encoded_segment_ts_future.done():
-                self._current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
-                self._current_segment.encode_status = 'Completed'
+            if current_segment is not None and not current_segment.encoded_segment_ts_future.done():
+                current_segment.encoded_segment_ts_future.set_result(bytes(encoded_segment))
+                current_segment.encode_status = 'Completed'
                 logging.info(f'{self.video_stream.log_prefix}[Segment {current_sequence}] Successfully Encoded Final HLS Segment.')
 
             # エンコードタスクでのすべての処理を完了した
@@ -857,4 +1164,5 @@ class VideoEncodingTask:
             # 少し待ってから完全に破棄
             await asyncio.sleep(0.1)
             self._tsreadex_process = None
+            self._tsreadex_feed_task = None
             self._encoder_process = None
