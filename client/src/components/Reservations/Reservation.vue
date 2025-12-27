@@ -44,7 +44,7 @@
                 <div class="reservation__content-meta">
                     <div class="reservation__content-meta-broadcaster">
                         <img class="reservation__content-meta-broadcaster-icon" loading="lazy" decoding="async"
-                            :src="`${Utils.api_base_url}/channels/${reservation.channel.id}/logo`"
+                            :src="`${Utils.getApiBaseUrl()}/channels/${reservation.channel.id}/logo`"
                             @error="onLogoError">
                         <span class="reservation__content-meta-broadcaster-name">Ch: {{ reservation.channel.channel_number }} {{ reservation.channel.name }}</span>
                     </div>
@@ -113,7 +113,7 @@ watch(() => props.reservation.record_settings.is_enabled, (newValue) => {
 // ロゴ画像エラー時のフォールバック
 const onLogoError = (event: Event) => {
     const target = event.target as HTMLImageElement;
-    target.src = `${Utils.api_base_url}/channels/gr001/logo`;
+    target.src = `${Utils.getApiBaseUrl()}/channels/gr001/logo`;
 };
 
 // 予約状態のラベルを取得

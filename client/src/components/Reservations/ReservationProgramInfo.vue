@@ -6,7 +6,7 @@
             </h1>
             <div class="program-info__broadcaster">
                 <img class="program-info__broadcaster-icon"
-                    :src="`${Utils.api_base_url}/channels/${reservation.channel.id}/logo`"
+                    :src="`${Utils.getApiBaseUrl()}/channels/${reservation.channel.id}/logo`"
                     @error="onLogoError">
                 <div class="program-info__broadcaster-container">
                     <div class="d-flex align-center">
@@ -78,7 +78,7 @@ export default defineComponent({
         // ロゴ画像エラー時のフォールバック
         onLogoError(event: Event): void {
             const target = event.target as HTMLImageElement;
-            target.src = `${Utils.api_base_url}/channels/gr001/logo`;
+            target.src = `${Utils.getApiBaseUrl()}/channels/gr001/logo`;
         },
     },
 });
