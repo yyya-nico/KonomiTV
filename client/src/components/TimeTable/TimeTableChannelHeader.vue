@@ -12,7 +12,7 @@
         <!-- チャンネルロゴ -->
         <div class="timetable-channel-header__logo-wrapper">
             <img class="timetable-channel-header__logo" loading="lazy" decoding="async"
-                :src="`${Utils.api_base_url}/channels/${channel.id}/logo`"
+                :src="`${Utils.getApiBaseUrl()}/channels/${channel.id}/logo`"
                 :alt="channel.name">
         </div>
         <!-- チャンネル情報 -->
