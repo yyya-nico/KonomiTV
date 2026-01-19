@@ -31,6 +31,7 @@ from app.constants import (
     BASE_DIR,
     LIBRARY_PATH,
 )
+from app.utils.TSInformation import TerrestrialRegion
 
 
 # クライアント設定を表す Pydantic モデル (クライアント設定同期用 API で利用)
@@ -50,13 +51,37 @@ class ClientSettings(BaseModel):
     # lshaped_screen_crop_y_position: 同期無効
     # lshaped_screen_crop_zoom_origin: 同期無効
     pinned_channel_ids: list[str] = []
-    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = 'RestorePreviousState'
-    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = 'Program'
-    video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = 'RecordedProgram'
+    timetable_channel_width: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
+    timetable_hour_height: Literal['Wide', 'Normal', 'Narrow'] = 'Normal'
+    timetable_hover_expand: bool = False
+    timetable_dim_shopping_programs: bool = True
+    # 番組表のジャンル別のハイライト色
+    # キーはジャンル名 (大分類)、値はハイライトカラー
+    # クライアント側の ILocalClientSettingsDefault.timetable_genre_colors と一致させる必要がある
+    timetable_genre_colors: dict[str, Literal['White', 'Pink', 'Red', 'Orange', 'Yellow', 'Lime', 'Teal', 'Cyan', 'Blue', 'Ochre', 'Brown']] = {
+        'ニュース・報道': 'White',
+        '情報・ワイドショー': 'White',
+        'ドキュメンタリー・教養': 'Blue',
+        'スポーツ': 'Cyan',
+        'ドラマ': 'Pink',
+        'アニメ・特撮': 'Yellow',
+        'バラエティ': 'Lime',
+        '音楽': 'Orange',
+        '映画': 'Brown',
+        '劇場・公演': 'Ochre',
+        '趣味・教育': 'Teal',
+        '福祉': 'White',
+        'その他': 'White',
+    }
     show_player_background_image: bool = True
     use_pure_black_player_background: bool = False
     tv_channel_selection_requires_alt_key: bool = False
     use_28hour_clock: bool = False
+    show_original_broadcast_time_during_playback: bool = False
+    panel_display_state: Literal['RestorePreviousState', 'AlwaysDisplay', 'AlwaysFold'] = 'RestorePreviousState'
+    tv_panel_active_tab: Literal['Program', 'Channel', 'Comment', 'Twitter'] = 'Program'
+    video_panel_active_tab: Literal['RecordedProgram', 'Series', 'Comment', 'Twitter'] = 'RecordedProgram'
+    video_watched_history_max_count: Annotated[int, PositiveInt] = 50
     # tv_streaming_quality: 同期無効
     # tv_streaming_quality_cellular: 同期無効
     # tv_data_saver_mode: 同期無効
@@ -308,11 +333,13 @@ class _ServerSettingsServer(BaseModel):
         return port
 
 class _ServerSettingsTV(BaseModel):
+    preferred_terrestrial_region: TerrestrialRegion | None = None
     max_alive_time: PositiveInt = 10
     debug_mode_ts_path: FilePath | None = None
 
 class _ServerSettingsVideo(BaseModel):
     recorded_folders: list[DirectoryPath] = []
+    exclude_scan_paths: list[str] = []
 
 class _ServerSettingsCapture(BaseModel):
     upload_folders: list[DirectoryPath] = []
@@ -350,6 +377,33 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         ServerSettings: 読み込んだサーバー設定データ
     """
 
+    def MergeConfigWithDefaults(config_dict: dict[str, Any]) -> dict[str, Any]:
+        """
+        config.yaml の読み込み結果をデフォルト設定とマージする
+
+        Args:
+            config_dict (dict[str, Any]): config.yaml から読み込んだ設定データ
+
+        Returns:
+            dict[str, Any]: デフォルト設定とマージ済みの設定データ
+        """
+
+        def merge_dicts(base_dict: dict[str, Any], override_dict: dict[str, Any]) -> dict[str, Any]:
+            merged_dict = dict(base_dict)
+            for key, value in override_dict.items():
+                if (
+                    key in merged_dict
+                    and isinstance(merged_dict[key], dict)
+                    and isinstance(value, dict)
+                ):
+                    merged_dict[key] = merge_dicts(merged_dict[key], value)
+                else:
+                    merged_dict[key] = value
+            return merged_dict
+
+        default_config_dict = ServerSettings().model_dump(mode='json')
+        return merge_dicts(default_config_dict, config_dict)
+
     global _CONFIG, _CONFIG_YAML_PATH, _DOCKER_PATH_PREFIX
     assert _CONFIG is None, 'LoadConfig() has already been called.'
 
@@ -378,10 +432,25 @@ def LoadConfig(bypass_validation: bool = False) -> ServerSettings:
         sys.exit(1)
 
     try:
+        # config.yaml に存在しない設定値はデフォルト値で補完する
+        config_dict = MergeConfigWithDefaults(config_dict)
+
         # Docker 上で実行されているとき、サーバー設定のうちパス指定の項目に Docker 環境向けの Prefix (/host-rootfs) を付ける
         ## /host-rootfs (docker-compose.yaml で定義) を通してホストマシンのファイルシステムにアクセスできる
         if GetPlatformEnvironment() == 'Linux-Docker':
             config_dict['video']['recorded_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['video']['recorded_folders']]
+            if 'exclude_scan_paths' in config_dict['video']:
+                # 空文字や空白だけのパスは無視する
+                ## 空文字が Docker 用 Prefix に変換されると、全パスが除外対象になってしまうため
+                exclude_scan_paths = [
+                    pattern.strip()
+                    for pattern in config_dict['video']['exclude_scan_paths']
+                    if type(pattern) is str and pattern.strip() != ''
+                ]
+                config_dict['video']['exclude_scan_paths'] = [
+                    _DOCKER_PATH_PREFIX + pattern
+                    for pattern in exclude_scan_paths
+                ]
             config_dict['capture']['upload_folders'] = [_DOCKER_PATH_PREFIX + folder for folder in config_dict['capture']['upload_folders']]
             if type(config_dict['tv']['debug_mode_ts_path']) is str:
                 config_dict['tv']['debug_mode_ts_path'] = _DOCKER_PATH_PREFIX + config_dict['tv']['debug_mode_ts_path']
@@ -440,6 +509,7 @@ def SaveConfig(config: ServerSettings) -> None:
     ## LoadConfig() で実行されている処理と逆の処理を行う
     if GetPlatformEnvironment() == 'Linux-Docker':
         config_dict['video']['recorded_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['video']['recorded_folders']]
+        config_dict['video']['exclude_scan_paths'] = [str(pattern).replace(_DOCKER_PATH_PREFIX, '') for pattern in config_dict['video']['exclude_scan_paths']]
         config_dict['capture']['upload_folders'] = [str(folder).replace(_DOCKER_PATH_PREFIX, '') for folder in config_dict['capture']['upload_folders']]
         if type(config_dict['tv']['debug_mode_ts_path']) is str or config_dict['tv']['debug_mode_ts_path'] is Path:
             config_dict['tv']['debug_mode_ts_path'] = str(config_dict['tv']['debug_mode_ts_path']).replace(_DOCKER_PATH_PREFIX, '')
@@ -460,7 +530,16 @@ def SaveConfig(config: ServerSettings) -> None:
     # config.yaml の内容を更新して保存
     # コメントやフォーマットを保持して保存するために更新方法を工夫している
     for key in config_dict:
+        # config.yaml 側に存在しないセクションがある場合は新規で作成する
+        if key not in config_raw or config_raw[key] is None:
+            config_raw[key] = ruamel.yaml.CommentedMap()
         for sub_key in config_dict[key]:
+            # config.yaml 側に存在しないキーがある場合は新規で作成する
+            if sub_key not in config_raw[key]:
+                if type(config_dict[key][sub_key]) is list:
+                    config_raw[key][sub_key] = ruamel.yaml.CommentedSeq()
+                else:
+                    config_raw[key][sub_key] = None
             # 文字列のリストを更新する場合は clear() と extend() を使う
             if type(config_dict[key][sub_key]) is list:
                 if type(config_raw[key][sub_key]) is ruamel.yaml.CommentedSeq:
