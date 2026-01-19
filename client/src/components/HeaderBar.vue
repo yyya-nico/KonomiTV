@@ -4,12 +4,14 @@
             <img class="konomitv-logo__image" src="/assets/images/logo.svg" height="21">
         </router-link>
         <v-spacer></v-spacer>
+        <!-- 番組表コントロール用スロット -->
+        <slot name="timetable-controls"></slot>
         <div v-if="showSearchInput" class="search-box">
-            <input class="search-input" type="search" enterkeyhint="search" :placeholder="search_placeholder"
-                v-model="search_query" @keydown="handleKeyDown">
+            <input class="search-input" type="search" enterkeyhint="search" :placeholder="searchPlaceholder"
+                v-model="searchQuery" @keydown="handleKeyDown">
             <Icon class="search-input__icon" icon="fluent:search-20-filled" height="24px" @click="doSearch" />
         </div>
-        <v-btn v-show="isButtonDisplay" variant="flat" class="pwa-install-button"
+        <v-btn v-show="isButtonDisplay && !isTimeTablePage" variant="flat" class="pwa-install-button"
             @click="pwaInstallHandler.install()">
             <Icon icon="material-symbols:install-desktop-rounded" height="20px" class="mr-1" />
             アプリとしてインストール
@@ -24,14 +26,14 @@ import { onMounted, ref, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 
 const isButtonDisplay = ref(false);
-const search_query = ref('');
+const searchQuery = ref('');
 const router = useRouter();
 const route = useRoute();
 
 // 検索クエリの初期化関数
-const initialize_search_query = () => {
+const initializeSearchQuery = () => {
     if (route.path.endsWith('/search') && route.query.query) {
-        search_query.value = decodeURIComponent(route.query.query as string);
+        searchQuery.value = decodeURIComponent(route.query.query as string);
     }
 };
 
@@ -39,13 +41,13 @@ onMounted(() => {
     pwaInstallHandler.addListener((canInstall) => {
         isButtonDisplay.value = canInstall;
     });
-    initialize_search_query();
+    initializeSearchQuery();
 });
 
 // ルートの変更を監視して検索クエリを更新
-watch(() => route.fullPath, initialize_search_query);
+watch(() => route.fullPath, initializeSearchQuery);
 
-const search_placeholder = computed(() => {
+const searchPlaceholder = computed(() => {
     return route.path.startsWith('/videos') || route.path.startsWith('/mylist') || route.path.startsWith('/watched-history')
         ? '録画番組を検索...'
         : '放送予定の番組を検索...';
@@ -64,9 +66,9 @@ const handleKeyDown = (event: KeyboardEvent) => {
 };
 
 const doSearch = () => {
-    if (search_query.value.trim()) {
-        const search_path = getSearchPath();
-        router.push(`${search_path}?query=${encodeURIComponent(search_query.value.trim())}`);
+    if (searchQuery.value.trim()) {
+        const searchPath = getSearchPath();
+        router.push(`${searchPath}?query=${encodeURIComponent(searchQuery.value.trim())}`);
     }
 };
 
@@ -74,6 +76,9 @@ const showSearchInput = computed(() => {
     const path = route.path;
     return !path.startsWith('/captures') && !path.startsWith('/settings') && !path.startsWith('/login') && !path.startsWith('/register');
 });
+
+// 番組表ページかどうか（ヘッダーにコントロールが多くスペースに余裕がないため、PWA インストールボタンを非表示にする）
+const isTimeTablePage = computed(() => route.path.startsWith('/timetable'));
 
 </script>
 <style lang="scss" scoped>
@@ -89,18 +94,11 @@ const showSearchInput = computed(() => {
     box-shadow: 0px 5px 5px -3px rgb(0 0 0 / 20%),
                 0px 8px 10px 1px rgb(0 0 0 / 14%),
                 0px 3px 14px 2px rgb(0 0 0 / 12%);
-    z-index: 10;
+    z-index: 40;
 
+    // スマホ横・縦画面では SPHeaderBar を使用するため非表示
     @include smartphone-horizontal {
-        width: 210px;
-        height: 48px;
-        justify-content: center;
-        .v-spacer {
-            display: none;
-        }
-    }
-    @include smartphone-horizontal-short {
-        width: 190px;
+        display: none;
     }
     @include smartphone-vertical {
         display: none;

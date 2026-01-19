@@ -1,5 +1,5 @@
 <template>
-    <div v-ripple class="reservation" :class="{ 'reservation--disabled': !is_enabled }"
+    <div v-ripple class="reservation" :class="{ 'reservation--disabled': !isEnabled }"
         @click="handleContentClick">
         <div class="reservation__container">
             <!-- 左側：優先度と有効・無効スイッチ -->
@@ -10,14 +10,14 @@
                 </div>
                 <div v-if="!reservation.is_recording_in_progress" class="reservation__toggle" @click="handleSwitchClick">
                     <v-switch
-                        v-model="is_enabled"
+                        v-model="isEnabled"
                         color="primary"
                         density="compact"
                         hide-details
                         @update:model-value="handleToggleEnabled"
                         @click="handleSwitchClick"
                     ></v-switch>
-                    <div class="reservation__toggle-label">{{ is_enabled ? '有効' : '無効' }}</div>
+                    <div class="reservation__toggle-label">{{ isEnabled ? '有効' : '無効' }}</div>
                 </div>
                 <div v-else class="reservation__recording">
                     <div class="reservation__recording-icon"></div>
@@ -79,13 +79,12 @@
         </div>
     </div>
 </template>
-
 <script lang="ts" setup>
+
 import { ref, watch } from 'vue';
 
 import Message from '@/message';
 import Reservations, { IReservation } from '@/services/Reservations';
-import { useSnackbarsStore } from '@/stores/SnackbarsStore';
 import Utils, { ProgramUtils } from '@/utils';
 
 // Props
@@ -99,15 +98,13 @@ const emit = defineEmits<{
     (e: 'click', reservation: IReservation): void;
 }>();
 
-const snackbarsStore = useSnackbarsStore();
-
 // 有効・無効の状態を管理
-const is_enabled = ref(props.reservation.record_settings.is_enabled);
-const is_updating = ref(false);
+const isEnabled = ref(props.reservation.record_settings.is_enabled);
+const isUpdating = ref(false);
 
 // propsの変更を監視
 watch(() => props.reservation.record_settings.is_enabled, (newValue) => {
-    is_enabled.value = newValue;
+    isEnabled.value = newValue;
 });
 
 // ロゴ画像エラー時のフォールバック
@@ -177,32 +174,32 @@ const handleContentClick = () => {
 
 // 有効・無効の切り替え処理
 const handleToggleEnabled = async () => {
-    if (is_updating.value) return;
+    if (isUpdating.value) return;
 
-    is_updating.value = true;
+    isUpdating.value = true;
     try {
         // 録画設定を更新
         const updatedSettings = {
             ...props.reservation.record_settings,
-            is_enabled: is_enabled.value,
+            is_enabled: isEnabled.value,
         };
 
         const result = await Reservations.updateReservation(props.reservation.id, updatedSettings);
         if (result) {
-            const message = is_enabled.value
+            const message = isEnabled.value
                 ? '録画予約を有効にしました。\n番組開始時刻になると自動的に録画が開始されます。'
                 : '録画予約を無効にしました。\n番組開始時刻までに再度予約を有効にしない限り、この番組は録画されません。';
             Message.success(message);
         } else {
             // 失敗時は元の状態に戻す
-            is_enabled.value = props.reservation.record_settings.is_enabled;
+            isEnabled.value = props.reservation.record_settings.is_enabled;
         }
     } catch (error) {
         console.error('Failed to update reservation:', error);
         // 失敗時は元の状態に戻す
-        is_enabled.value = props.reservation.record_settings.is_enabled;
+        isEnabled.value = props.reservation.record_settings.is_enabled;
     } finally {
-        is_updating.value = false;
+        isUpdating.value = false;
     }
 };
 
@@ -212,8 +209,8 @@ const handleSwitchClick = (event: Event) => {
 };
 
 </script>
-
 <style lang="scss" scoped>
+
 .reservation {
     display: flex;
     position: relative;
@@ -431,9 +428,8 @@ const handleSwitchClick = (event: Event) => {
             line-height: 1.35;
             margin-right: 12px;
             overflow: hidden;
-            display: -webkit-box;
-            -webkit-line-clamp: 1;
-            -webkit-box-orient: vertical;
+            white-space: nowrap;
+            text-overflow: ellipsis;
             @include tablet-vertical {
                 font-size: 15px;
             }
@@ -441,10 +437,13 @@ const handleSwitchClick = (event: Event) => {
                 font-size: 14px;
             }
             @include smartphone-vertical {
+                display: -webkit-box;
                 font-size: 13px;
                 line-height: 1.45;
                 margin-right: 8px;
+                white-space: normal;
                 -webkit-line-clamp: 2;
+                -webkit-box-orient: vertical;
             }
         }
 
@@ -732,18 +731,16 @@ const handleSwitchClick = (event: Event) => {
         }
 
         &-description {
-            display: -webkit-box;
             flex-grow: 1;
             margin-right: 12px;
             color: rgb(var(--v-theme-text-darken-1));
             font-size: 11.5px;
             line-height: 1.55;
-            overflow-wrap: break-word;
             font-feature-settings: "palt" 1;
             letter-spacing: 0.07em;
-            -webkit-line-clamp: 1;
-            -webkit-box-orient: vertical;
             overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
             @include tablet-vertical {
                 font-size: 11px;
             }

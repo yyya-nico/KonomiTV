@@ -72,6 +72,28 @@ export interface IReservationUpdateRequest {
     record_settings: IRecordSettings;
 }
 
+/**
+ * 録画設定のデフォルト値
+ * 新規予約追加時に使用する
+ */
+export const IRecordSettingsDefault: IRecordSettings = {
+    is_enabled: true,
+    priority: 2,
+    recording_folders: [],
+    recording_start_margin: null,
+    recording_end_margin: null,
+    recording_mode: 'SpecifiedService',
+    caption_recording_mode: 'Default',
+    data_broadcasting_recording_mode: 'Default',
+    post_recording_mode: 'Default',
+    post_recording_bat_file_path: null,
+    is_event_relay_follow_enabled: true,
+    is_exact_recording_enabled: false,
+    is_oneseg_separate_output_enabled: false,
+    is_sequential_recording_in_single_file_enabled: false,
+    forced_tuner_id: null,
+};
+
 
 /**
  * 録画予約に関する API 操作を提供するクラス
@@ -125,7 +147,7 @@ class Reservations {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '録画予約機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 case 'Specified program was not found':
                     APIClient.showGenericError(response, '指定された番組が見つかりませんでした。');
@@ -165,7 +187,7 @@ class Reservations {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '録画予約機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 case 'Specified reservation_id was not found':
                     APIClient.showGenericError(response, '指定された録画予約が見つかりませんでした。');
@@ -194,7 +216,7 @@ class Reservations {
         if (response.type === 'error') {
             switch (response.data.detail) {
                 case 'This API is only available when the backend is EDCB':
-                    APIClient.showGenericError(response, 'この機能は EDCB バックエンド利用時のみ使用できます。');
+                    APIClient.showGenericError(response, '録画予約機能は EDCB バックエンド選択時のみ利用できます。');
                     break;
                 case 'Specified reservation_id was not found':
                     APIClient.showGenericError(response, '指定された録画予約が見つかりませんでした。');

@@ -1,4 +1,3 @@
-# ruff: noqa: RUF012
 
 # Type Hints を指定できるように
 # ref: https://stackoverflow.com/a/33533514/17124142
@@ -11,6 +10,13 @@ from pydantic import BaseModel, Field, RootModel, computed_field
 from tortoise.contrib.pydantic import PydanticModel
 from typing_extensions import TypedDict
 
+from app.utils.TSInformation import TerrestrialRegion
+
+
+# 以下に定義する型定義は、必ず以下の例のように、「親モデル」->「子モデル」の順に記述すること！
+# from __future__ import annotations をインポートしているので前方参照について気にする必要はない
+## 悪い例: ThumbnailImageInfo -> ThumbnailTileInfo -> ThumbnailInfo -> KeyFrame -> CMSection -> RecordedVideo
+## 良い例: RecordedVideo -> KeyFrame -> CMSection -> ThumbnailInfo -> ThumbnailImageInfo -> ThumbnailTileInfo
 
 # モデルとモデルに関連する API レスポンスの構造を表す Pydantic モデル
 ## この Pydantic モデルに含まれていないカラムは、API レスポンス返却時に自動で除外される (パスワードなど)
@@ -30,6 +36,10 @@ class Channel(PydanticModel):
     channel_number: str
     type: Literal['GR', 'BS', 'CS', 'CATV', 'SKY', 'BS4K']
     name: str
+    # terrestrial_regions: network_id から算出した地デジチャンネルの地域名のリスト (デバッグ用)
+    # 広域放送局の場合は複数の地域名が含まれる
+    # 地デジ以外のチャンネルまたは地域が特定できない場合は None
+    terrestrial_regions: list[TerrestrialRegion] | None = None
     jikkyo_force: int | None = None
     is_subchannel: bool = False
     is_radiochannel: bool = False
@@ -84,6 +94,50 @@ class Genre(TypedDict):
     major: str
     middle: str
 
+# ***** 番組表 *****
+
+class TimeTable(BaseModel):
+    # チャンネルごとの番組リスト
+    channels: list[TimeTableChannel]
+    # 番組データの有効範囲 (日付セレクター用)
+    date_range: TimeTableDateRange
+
+class TimeTableDateRange(BaseModel):
+    # 番組データの最も早い日時
+    earliest: datetime
+    # 番組データの最も遅い日時
+    latest: datetime
+
+class TimeTableChannel(BaseModel):
+    # チャンネル情報
+    channel: Channel
+    # 番組リスト
+    programs: list[TimeTableProgram]
+    # サブチャンネルのリスト (8時間ルールに該当しないサブチャンネルのみ)
+    ## 同一 TS 内のサブチャンネルが1日あたり8時間以上放送されている場合、
+    ## そのサブチャンネルは独立したチャンネル列として表示され、このフィールドには含まれない
+    subchannels: list[TimeTableSubchannel] | None = None
+
+class TimeTableSubchannel(BaseModel):
+    # サブチャンネルのチャンネル情報
+    channel: Channel
+    # サブチャンネルの番組リスト
+    programs: list[TimeTableProgram]
+
+class TimeTableProgram(Program):
+    # 予約情報 (EDCB バックエンド時かつ予約がある場合のみ設定)
+    reservation: TimeTableProgramReservation | None = None
+
+class TimeTableProgramReservation(BaseModel):
+    # 録画予約 ID
+    id: int
+    # 予約状態: 予約済み / 録画中 / 無効
+    status: Literal['Reserved', 'Recording', 'Disabled']
+    # 実際に録画可能かどうか: 全編録画可能 / チューナー不足のため部分的にのみ録画可能 (一部録画できない) / チューナー不足のため全編録画不可能
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/CommonDef.h#L32-L34
+    # ref: https://github.com/xtne6f/EDCB/blob/work-plus-s-240212/Common/StructDef.h#L62
+    recording_availability: Literal['Full', 'Partial', 'Unavailable']
+
 # ***** 録画ファイル *****
 
 class RecordedVideo(PydanticModel):
@@ -114,6 +168,7 @@ class RecordedVideo(PydanticModel):
     # key_frames はデータ量が多いため、キーフレーム情報を取得できているかを表す has_key_frames のみ返す
     has_key_frames: bool = False
     cm_sections: list[CMSection] | None = None
+    thumbnail_info: ThumbnailInfo | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -124,6 +179,27 @@ class KeyFrame(TypedDict):
 class CMSection(TypedDict):
     start_time: float
     end_time: float
+
+class ThumbnailInfo(TypedDict):
+    version: int
+    representative: ThumbnailImageInfo
+    tile: ThumbnailTileInfo
+
+class ThumbnailImageInfo(TypedDict):
+    format: Literal['WebP']
+    width: int
+    height: int
+
+class ThumbnailTileInfo(TypedDict):
+    format: Literal['WebP']
+    image_width: int
+    image_height: int
+    tile_width: int
+    tile_height: int
+    total_tiles: int
+    column_count: int
+    row_count: int
+    interval_sec: float
 
 # ***** 録画番組 *****
 
