@@ -31,9 +31,13 @@
                         <span v-if="!iconOnly" class="navigation__link-text">番組表</span>
                     </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/pastepg/"
-                        :class="{'navigation__link--active': $route.path.startsWith('/pastepg')}">
+                        :class="{
+                            'navigation__link--active': $route.path.startsWith('/pastepg'),
+                            'navigation__link--icon-only': iconOnly,
+                        }"
+                        v-ftooltip.right="iconOnly ? '過去番組表' : ''">
                         <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
-                        <span class="navigation__link-text">過去番組表</span>
+                        <span v-if="!iconOnly" class="navigation__link-text">過去番組表</span>
                     </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/reservations/"
                         :class="{
