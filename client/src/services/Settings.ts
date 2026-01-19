@@ -1,6 +1,6 @@
 
 import APIClient from '@/services/APIClient';
-import { getSyncableClientSettings } from '@/stores/SettingsStore';
+import { getSyncableClientSettings, ITimeTableGenreColors, TimeTableSizeOption } from '@/stores/SettingsStore';
 
 
 /**
@@ -37,13 +37,20 @@ export interface IClientSettings {
     // lshaped_screen_crop_y_position: 同期無効
     // lshaped_screen_crop_zoom_origin: 同期無効
     pinned_channel_ids: string[];
-    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
-    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
-    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    timetable_channel_width: TimeTableSizeOption;
+    timetable_hour_height: TimeTableSizeOption;
+    timetable_hover_expand: boolean;
+    timetable_dim_shopping_programs: boolean;
+    timetable_genre_colors: ITimeTableGenreColors;
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     use_28hour_clock: boolean;
+    show_original_broadcast_time_during_playback: boolean;
+    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
+    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
+    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    video_watched_history_max_count: number;
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
@@ -108,11 +115,13 @@ export interface IServerSettings {
         custom_https_private_key: string | null;
     };
     tv: {
+        preferred_terrestrial_region: string | null;
         max_alive_time: number;
         debug_mode_ts_path: string | null;
     };
     video: {
         recorded_folders: string[];
+        exclude_scan_paths: string[];
     };
     capture: {
         upload_folders: string[];
@@ -137,11 +146,13 @@ export const IServerSettingsDefault: IServerSettings = {
         custom_https_private_key: null,
     },
     tv: {
+        preferred_terrestrial_region: null,
         max_alive_time: 10,
         debug_mode_ts_path: null,
     },
     video: {
         recorded_folders: [],
+        exclude_scan_paths: [],
     },
     capture: {
         upload_folders: [],

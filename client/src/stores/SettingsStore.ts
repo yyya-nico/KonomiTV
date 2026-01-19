@@ -12,6 +12,25 @@ export const LIVE_STREAMING_QUALITIES: LiveStreamingQuality[] = ['1080p-60fps', 
 export type VideoStreamingQuality = '1080p-60fps' | '1080p' | '810p' | '720p' | '540p' | '480p' | '360p' | '240p';
 export const VIDEO_STREAMING_QUALITIES: VideoStreamingQuality[] = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'];
 
+// 番組表関連の型定義
+export type TimeTableSizeOption = 'Wide' | 'Normal' | 'Narrow';
+export type TimeTableGenreHighlightColor = 'White' | 'Pink' | 'Red' | 'Orange' | 'Yellow' | 'Lime' | 'Teal' | 'Cyan' | 'Blue' | 'Ochre' | 'Brown';
+export interface ITimeTableGenreColors {
+    'ニュース・報道': TimeTableGenreHighlightColor;
+    '情報・ワイドショー': TimeTableGenreHighlightColor;
+    'ドキュメンタリー・教養': TimeTableGenreHighlightColor;
+    'スポーツ': TimeTableGenreHighlightColor;
+    'ドラマ': TimeTableGenreHighlightColor;
+    'アニメ・特撮': TimeTableGenreHighlightColor;
+    'バラエティ': TimeTableGenreHighlightColor;
+    '音楽': TimeTableGenreHighlightColor;
+    '映画': TimeTableGenreHighlightColor;
+    '劇場・公演': TimeTableGenreHighlightColor;
+    '趣味・教育': TimeTableGenreHighlightColor;
+    '福祉': TimeTableGenreHighlightColor;
+    'その他': TimeTableGenreHighlightColor;
+}
+
 /**
  * LocalStorage に保存される KonomiTV の設定データ
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
@@ -38,13 +57,20 @@ export interface ILocalClientSettings extends IClientSettings {
     lshaped_screen_crop_y_position: number;
     lshaped_screen_crop_zoom_origin: 'TopLeft' | 'TopRight' | 'BottomLeft' | 'BottomRight';
     pinned_channel_ids: string[];
-    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
-    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
-    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    timetable_channel_width: TimeTableSizeOption;
+    timetable_hour_height: TimeTableSizeOption;
+    timetable_hover_expand: boolean;
+    timetable_dim_shopping_programs: boolean;
+    timetable_genre_colors: ITimeTableGenreColors;
     show_player_background_image: boolean;
     use_pure_black_player_background: boolean;
     tv_channel_selection_requires_alt_key: boolean;
     use_28hour_clock: boolean;
+    show_original_broadcast_time_during_playback: boolean;
+    panel_display_state: 'RestorePreviousState' | 'AlwaysDisplay' | 'AlwaysFold';
+    tv_panel_active_tab: 'Program' | 'Channel' | 'Comment' | 'Twitter';
+    video_panel_active_tab: 'RecordedProgram' | 'Series' | 'Comment' | 'Twitter';
+    video_watched_history_max_count: number;
     tv_streaming_quality: LiveStreamingQuality;
     tv_streaming_quality_cellular: LiveStreamingQuality;
     tv_data_saver_mode: boolean;
@@ -91,6 +117,7 @@ export interface ILocalClientSettings extends IClientSettings {
 /**
  * LocalStorage に保存される KonomiTV の設定データのデフォルト値
  * IClientSettings とは異なり、同期対象外の設定キーも含まれる
+ * 以下の設定は、必ず UI 上の表示順序通りに記述しなければならない
  */
 export const ILocalClientSettingsDefault: ILocalClientSettings = {
 
@@ -125,16 +152,40 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     // L字画面のクロップの拡大起点 (Default: 右下)
     lshaped_screen_crop_zoom_origin: 'BottomRight',
 
-    // ***** 設定 → 全般 *****
+    // ***** ピン留め中チャンネルの並び替え設定 *****
 
     // ピン留めしているチャンネルの ID (ex: gr011) が入るリスト
     pinned_channel_ids: [],
-    // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
-    panel_display_state: 'RestorePreviousState',
-    // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
-    tv_panel_active_tab: 'Program',
-    // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
-    video_panel_active_tab: 'RecordedProgram',
+
+    // ***** 番組表の表示設定 *****
+
+    // 各チャンネルの表示幅を調整 (Default: 通常)
+    timetable_channel_width: 'Normal',
+    // 時間軸の表示密度を調整 (Default: 通常)
+    timetable_hour_height: 'Normal',
+    // カーソルを重ねた時に番組詳細を自動表示する (Default: オフ)
+    timetable_hover_expand: false,
+    // ショッピング・通販番組を控えめに表示する (Default: オン)
+    timetable_dim_shopping_programs: true,
+    // 番組表のジャンル別のハイライト色 (Default: 以下の通り)
+    timetable_genre_colors: {
+        'ニュース・報道': 'White',
+        '情報・ワイドショー': 'White',
+        'ドキュメンタリー・教養': 'Blue',
+        'スポーツ': 'Cyan',
+        'ドラマ': 'Pink',
+        'アニメ・特撮': 'Yellow',
+        'バラエティ': 'Lime',
+        '音楽': 'Orange',
+        '映画': 'Brown',
+        '劇場・公演': 'Ochre',
+        '趣味・教育': 'Teal',
+        '福祉': 'White',
+        'その他': 'White',
+    },
+
+    // ***** 設定 → 全般 *****
+
     // プレイヤーの読み込み中に背景写真を表示する (Default: オン)
     show_player_background_image: true,
     // プレイヤー表示領域の背景色を完全な黒にする (Default: オフ)
@@ -143,6 +194,17 @@ export const ILocalClientSettingsDefault: ILocalClientSettings = {
     tv_channel_selection_requires_alt_key: false,
     // 時刻を 28 時間表記で表示する (Default: オフ)
     use_28hour_clock: false,
+    // 録画番組の再生中に元の放送時刻を表示する (Default: オフ)
+    show_original_broadcast_time_during_playback: false,
+    // デフォルトのパネルの表示状態 (Default: 前回の状態を復元する)
+    panel_display_state: 'RestorePreviousState',
+    // テレビをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
+    tv_panel_active_tab: 'Program',
+    // ビデオをみるときにデフォルトで表示されるパネルのタブ (Default: 番組情報タブ)
+    video_panel_active_tab: 'RecordedProgram',
+    // 視聴履歴の保持件数 (Default: 50件)
+    // この値を超えると、最も古い視聴履歴から自動的に削除される
+    video_watched_history_max_count: 50,
 
     // ***** 設定 → 画質 *****
 
@@ -268,13 +330,20 @@ export const SYNCABLE_SETTINGS_KEYS: (keyof IClientSettings)[] = [
     // lshaped_screen_crop_y_position: 同期無効
     // lshaped_screen_crop_zoom_origin: 同期無効
     'pinned_channel_ids',
-    'panel_display_state',
-    'tv_panel_active_tab',
-    'video_panel_active_tab',
+    'timetable_channel_width',
+    'timetable_hour_height',
+    'timetable_hover_expand',
+    'timetable_dim_shopping_programs',
+    'timetable_genre_colors',
     'show_player_background_image',
     'use_pure_black_player_background',
     'tv_channel_selection_requires_alt_key',
     'use_28hour_clock',
+    'show_original_broadcast_time_during_playback',
+    'panel_display_state',
+    'tv_panel_active_tab',
+    'video_panel_active_tab',
+    'video_watched_history_max_count',
     // tv_streaming_quality: 同期無効
     // tv_streaming_quality_cellular: 同期無効
     // tv_data_saver_mode: 同期無効
