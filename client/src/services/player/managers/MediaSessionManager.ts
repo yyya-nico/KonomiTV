@@ -60,8 +60,8 @@ class MediaSessionManager implements PlayerManager {
         // アートワークとして表示するアイコン
         // ライブ視聴では KonomiTV のアイコンを、録画再生ではサムネイルを設定する
         const artwork = (this.playback_mode === 'Live') ? [
-            {src: '/konomitv/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
-            {src: '/konomitv/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
+            {src: '/assets/images/icons/icon-maskable-192px.png', sizes: '192x192', type: 'image/png'},
+            {src: '/assets/images/icons/icon-maskable-512px.png', sizes: '512x512', type: 'image/png'},
         ] : [
             {src: `${Utils.getApiBaseUrl()}/videos/${player_store.recorded_program.id}/thumbnail`, sizes: '480x270', type: 'image/webp'},
         ];

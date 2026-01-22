@@ -88,7 +88,7 @@
                                          :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
-                            <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/konomitv/wholech/"
+                            <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech/"
                                 v-if="channels_type === '地デジ' && channels.length !== 0">
                                 全てのチャンネルを視聴
                             </a>

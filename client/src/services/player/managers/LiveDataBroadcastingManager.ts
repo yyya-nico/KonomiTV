@@ -23,10 +23,10 @@ class LiveDataBroadcastingManager implements PlayerManager {
 
     // BML 用フォント
     public static readonly ROUND_GOTHIC: BMLBrowserFontFace = {
-        source: 'url("/konomitv/assets/fonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
+        source: 'url("/assets/fonts/KosugiMaru-Regular.woff2"), local("sans-serif")',
     };
     public static readonly SQUARE_GOTHIC: BMLBrowserFontFace = {
-        source: 'url("/konomitv/assets/fonts/Kosugi-Regular.woff2"), local("sans-serif")',
+        source: 'url("/assets/fonts/Kosugi-Regular.woff2"), local("sans-serif")',
     };
 
     // DPlayer のインスタンス

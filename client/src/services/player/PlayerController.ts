@@ -122,7 +122,7 @@ class PlayerController {
             for (let index = 1; index <= 14; index++) {
                 // ArrayBuffer をデコードして AudioBuffer にし、すぐ呼び出せるように貯めておく
                 // ref: https://ics.media/entry/200427/
-                const romsound_url = `/konomitv/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
+                const romsound_url = `/assets/romsounds/${index.toString().padStart(2, '0')}.wav`;
                 const romsound_response = await APIClient.get<ArrayBuffer>(romsound_url, {
                     baseURL: '',  // BaseURL を明示的にクライアントのルートに設定
                     responseType: 'arraybuffer',

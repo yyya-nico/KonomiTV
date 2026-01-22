@@ -12,7 +12,6 @@ import vuetify, { transformAssetUrls } from 'vite-plugin-vuetify';
 // Vite の設定
 // https://vitejs.dev/config/
 export default defineConfig({
-    base: '/konomitv/',
     // バージョン情報をビルド時に埋め込む
     // ref: https://stackoverflow.com/a/68093777/17124142
     define: {
@@ -130,7 +129,7 @@ export default defineConfig({
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
                 // index.htmlを返さないパス
-                navigateFallbackDenylist: [/^\/konomitv\/wholech/],
+                navigateFallbackDenylist: [/^\/wholech/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }
