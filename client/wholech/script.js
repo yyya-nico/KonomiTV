@@ -6,9 +6,9 @@ import Utils from '@/utils';
 const wrap = document.getElementById('wrap');
 const chList = document.getElementById('chlist');
 const control = document.getElementById('control');
-const volumeButton = document.getElementById('volumebutton');
-const keepShowSw = document.getElementById('keepshowsw');
-const fullscreenButton = document.getElementById('fsbutton');
+const volumeBtn = document.getElementById('volumebutton');
+const keepDisplaySw = document.getElementById('keepshowsw');
+const fullscreenBtn = document.getElementById('fsbutton');
 
 const controlInit = () => {
     let hideTimer = 0, delayHideTimer = 0;
@@ -19,7 +19,7 @@ const controlInit = () => {
         wrap.classList.remove('hide-info');
         hideTimer = setTimeout(() => {
             wrap.classList.add('hide-ui');
-            if (keepShowSw.checked) {
+            if (keepDisplaySw.checked) {
                 return;
             }
             delayHideTimer = setTimeout(() => {
@@ -30,36 +30,36 @@ const controlInit = () => {
     window.addEventListener('pointerdown',showAndHide);
     window.addEventListener('pointermove',showAndHide);
     window.addEventListener('scroll',showAndHide);
-    keepShowSw.addEventListener('change',showAndHide);
+    keepDisplaySw.addEventListener('change',showAndHide);
 
     window.addEventListener('keydown', (e) =>{
         const keyName = e.key;
         switch(keyName){
-            case 'A':
-            case 'a':
-                volumeButton.click();
+            case 'V':
+            case 'v':
+                volumeBtn.click();
+                break;
+            case 'D':
+            case 'd':
+                keepDisplaySw.click();
                 break;
             case 'F':
             case 'f':
-                fullscreenButton.click();
+                fullscreenBtn.click();
                 break;
             case 'ArrowUp':
-                tuning(-3);
-                break;
             case 'ArrowLeft':
                 tuning(-1);
                 break;
             case 'ArrowRight':
-                tuning(1);
-                break;
             case 'ArrowDown':
-                tuning(3);
+                tuning(1);
                 break;
         }
         showAndHide();
     });
 
-    volumeButton.addEventListener('click', () => tuning('toggle-all'));
+    volumeBtn.addEventListener('click', () => tuning('toggle-all'));
 
     window.addEventListener('scroll', () => {
         function getScrollBottom() {
@@ -114,10 +114,7 @@ const tuning = ch => {
         } else {
             const firstFrame = audibleFrames[0];
             const firstFrameIndex = firstFrame.index;
-            let targetFrameIndex = (firstFrameIndex + ch) % chFrames.length;
-            if (targetFrameIndex < 0) {
-                targetFrameIndex = chFrames.length + targetFrameIndex;
-            }
+            let targetFrameIndex = (firstFrameIndex + ch + chFrames.length) % chFrames.length;
             muteFlags[targetFrameIndex] = false;
         }
     } else if (typeof ch === 'object') {
@@ -184,15 +181,15 @@ getDisplayGR().forEach((ch, index) => {
         const audible = chFrames.some(chFrame => !chFrame.video.muted);
         const allAudible = chFrames.every(chFrame => !chFrame.video.muted);
         if (audible) {
-            volumeButton.innerHTML = '<i class="material-icons">volume_up</i>';
+            volumeBtn.innerHTML = '<i class="material-icons">volume_up</i>';
             if (allAudible) {
-                volumeButton.title = 'ミュートする';
+                volumeBtn.title = 'ミュートする(V)';
             } else {
-                volumeButton.title = '全ch聴く';
+                volumeBtn.title = '全ch聴く(V)';
             }
         } else {
-            volumeButton.innerHTML = '<i class="material-icons">volume_off</i>';
-            volumeButton.title = '全ch聴く';
+            volumeBtn.innerHTML = '<i class="material-icons">volume_off</i>';
+            volumeBtn.title = '全ch聴く(V)';
         }
     });
     if (mpegts.getFeatureList().mseLivePlayback) {
@@ -248,7 +245,7 @@ setInterval(async () => {
     });
 }, 30 * 1000);
 
-fullscreenButton.addEventListener('click', () => {
+fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) {
         document.documentElement.requestFullscreen()
             .catch((err) => {
@@ -262,12 +259,12 @@ fullscreenButton.addEventListener('click', () => {
 const fullscreenChangeHandler = () => {
     if(document.fullscreenElement) {
         screen.orientation.lock('landscape').catch(()=>{});
-        fullscreenButton.innerHTML = '<i class="material-icons">fullscreen_exit</i>';
-        fullscreenButton.title = '全画面表示を終了';
+        fullscreenBtn.innerHTML = '<i class="material-icons">fullscreen_exit</i>';
+        fullscreenBtn.title = '全画面表示を終了(F)';
     }else{
         screen.orientation.unlock && screen.orientation.unlock();
-        fullscreenButton.innerHTML = '<i class="material-icons">fullscreen</i>';
-        fullscreenButton.title = '全画面表示';
+        fullscreenBtn.innerHTML = '<i class="material-icons">fullscreen</i>';
+        fullscreenBtn.title = '全画面表示(F)';
     }
 };
 document.addEventListener('fullscreenchange', fullscreenChangeHandler);
