@@ -71,12 +71,47 @@ body {
         > .chframe.listening {
             grid-column: 1 / 4;
             grid-row: 1 / 4;
+
+            .broadcast-wrap {
+                font-size: x-large;
+            }
+
+            .broadcast-channel-box {
+                gap: 4px;
+                top: 3px;
+                left: 6px;
+                z-index: 1;
+                background-color: transparent;
+                font-size: x-large;
+
+                .broadcast-logo {
+                    width: 56px;
+                    height: 32px;
+                }
+            }
+
+            .broadcast-title {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 4px;
+                top: 0;
+                bottom: auto;
+                height: auto;
+                padding: 8px 8px 8px 110px;
+                border-radius: 4px;
+
+                .broadcast-time {
+                    flex-shrink: 0;
+                    position: static;
+                    font-size: large;
+                }
+            }
         }
     }
 
     > .chframe {
         position: relative;
-        transition: 0.5s;
         cursor: pointer;
 
         &:hover {
@@ -100,7 +135,9 @@ body {
             font-size: medium;
             visibility: visible;
             opacity: 1;
-            transition: 0.3s;
+            transition:
+                opacity 0.3s,
+                visibility 0.3s;
         }
 
         .broadcast-channel-box {
@@ -131,7 +168,7 @@ body {
             line-height: 1.2;
             height: 1.2em;
             background: rgba(0, 0, 0, 0.5);
-            transition: 0.5s;
+            transition: height 0.5s;
             overflow: hidden;
 
             .broadcast-time {
@@ -148,7 +185,10 @@ body {
             bottom: 1.2em;
             visibility: hidden;
             opacity: 0;
-            transition: 0.3s;
+            transition:
+                bottom 0.3s,
+                opacity 0.3s,
+                visibility 0.3s;
             user-select: none;
 
             > * {
@@ -170,7 +210,9 @@ body {
     bottom: 0;
     visibility: visible;
     opacity: 1;
-    transition: 0.3s;
+    transition:
+        opacity 0.3s,
+        visibility 0.3s;
     user-select: none;
 
     > * {
@@ -216,7 +258,7 @@ body {
         align-items: center;
         justify-content: center;
         line-height: 40px;
-        transition: 0.2s;
+        transition: color 0.2s;
     }
 }
 
