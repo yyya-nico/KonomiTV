@@ -48,12 +48,12 @@ const controlInit = () => {
                 fullscreenBtn.click();
                 break;
             case 'ArrowUp':
+            case 'ArrowRight':
+                tuning(1);
+                break;
+            case 'ArrowDown':
             case 'ArrowLeft':
                 tuning(-1);
-                break;
-            case 'ArrowRight':
-            case 'ArrowDown':
-                tuning(1);
                 break;
         }
         showAndHide();
