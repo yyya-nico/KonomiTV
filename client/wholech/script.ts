@@ -146,7 +146,7 @@ class UIController {
                         break;
                     case 'ArrowRight':
                     case 'ArrowLeft':
-                        nextIndex = chFrames.length - 1;
+                        nextIndex = 6;
                         if (nextIndex === listenFrameIndex) nextIndex--;
                         break;
                 }
