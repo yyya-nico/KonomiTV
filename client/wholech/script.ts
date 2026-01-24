@@ -94,7 +94,7 @@ class UIController {
             case 'r':
                 if (activeChFrame) {
                     const reloadBtn = activeElem.querySelector('.reload') as HTMLButtonElement;
-                    reloadBtn.click();
+                    reloadBtn.dispatchEvent(new MouseEvent('click', { shiftKey: e.shiftKey }));
                 }
                 break;
         }
