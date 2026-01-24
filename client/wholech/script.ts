@@ -314,20 +314,23 @@ class Tuner {
 
     applyMuteState(unmutePos: number | 'all' | null): void {
         const newStates = Array(this.chFrames.length).fill(true);
-        if (unmutePos === 'all') {
-            newStates.fill(false);
-        } else if (typeof unmutePos === 'number') {
+        const isSingleUnmute = typeof unmutePos === 'number';
+        if (isSingleUnmute) {
             newStates[unmutePos] = false;
+        } else if (unmutePos === 'all') {
+            newStates.fill(false);
         }
         this.chFrames.forEach((frame, index) => {
             frame.video.muted = newStates[index];
             frame.elem.tabIndex = -1;
         });
-        const isSingleUnmuted = newStates.filter(muted => !muted).length === 1;
-        this.chList.classList.toggle('choiced', isSingleUnmuted);
-        if (isSingleUnmuted && typeof unmutePos === 'number') {
+        this.chList.classList.toggle('choiced', isSingleUnmute);
+        if (isSingleUnmute) {
             this.chFrames[unmutePos].elem.tabIndex = 0;
             this.chFrames[unmutePos].elem.focus();
+        } else {
+            this.chFrames[0].elem.tabIndex = 0;
+            this.chFrames[0].elem.focus();
         }
         this.updateVolumeButton();
     }
