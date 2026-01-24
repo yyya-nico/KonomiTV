@@ -187,7 +187,9 @@ class Tuner {
             const currentFrame = ch;
             const index = this.chFrames.indexOf(currentFrame);
             if (index === -1) return;
-            unmutePos = index;
+            if (currentFrame.video.muted) {
+                unmutePos = index;
+            }
         }
         this.applyMuteState(unmutePos);
     }
