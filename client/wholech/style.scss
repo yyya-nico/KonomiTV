@@ -264,8 +264,9 @@ body {
         position: absolute;
         inset: 0;
         margin: 0;
-        opacity: 0;
+        outline-offset: 0;
         cursor: pointer;
+        appearance: none;
 
         &:checked + label {
             color: #2d96ff;
