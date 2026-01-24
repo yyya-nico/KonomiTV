@@ -25,7 +25,7 @@ class UIController {
     hideTimer: ReturnType<typeof setTimeout> | null;
     delayHideTimer: ReturnType<typeof setTimeout> | null;
     onVolumeClick: () => void;
-    onTuning: (ch: number) => void;
+    onTuning: (ch: number | 'up' | 'down') => void;
 
     constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement, volumeBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
         this.wrap = wrap;
@@ -97,6 +97,12 @@ class UIController {
                     const reloadBtn = activeElem.querySelector('.reload') as HTMLButtonElement;
                     reloadBtn.dispatchEvent(new MouseEvent('click', { shiftKey: e.shiftKey }));
                 }
+                break;
+            case 'PageUp':
+                this.onTuning('up');
+                break;
+            case 'PageDown':
+                this.onTuning('down');
                 break;
         }
         const isNumKey = !isNaN(parseInt(keyName, 10));
@@ -229,7 +235,7 @@ class UIController {
         this.onVolumeClick = callback;
     }
 
-    setOnTuning(callback: (ch: number) => void): void {
+    setOnTuning(callback: (ch: number | 'up' | 'down') => void): void {
         this.onTuning = callback;
     }
 }
