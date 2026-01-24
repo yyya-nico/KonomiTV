@@ -409,14 +409,13 @@ class App {
         this.uiController = new UIController(this.wrap, this.control, this.volumeBtn, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
         this.chFrames = [];
-        this.tuner = null as any;
+        this.tuner = new Tuner(this.chFrames, this.chList, this.volumeBtn);
         this.fullscreenController = new FullscreenController(this.fullscreenBtn);
     }
 
     async init(): Promise<void> {
         await this.channelManager.updateChannels();
         this.createChannelFrames();
-        this.tuner = new Tuner(this.chFrames, this.chList, this.volumeBtn);
         this.uiController.setOnVolumeClick(() => this.tuner.tune('toggle-all'));
         this.uiController.setOnTuning((ch) => this.tuner.tune(ch));
         this.uiController.init();
