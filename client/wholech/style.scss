@@ -81,7 +81,7 @@ body {
             &:nth-child(-n + 4) {
                 grid-row: 4;
             }
-            &:nth-child(n + 4) {
+            &:nth-child(n + 4):nth-child(-n + 7) {
                 grid-column: 4;
             }
             @for $i from 1 through 4 {
