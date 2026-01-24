@@ -8,7 +8,16 @@ import Utils from '@/utils';
 
 // UI制御クラス
 class UIController {
+    static readonly CHOICED_TILE = [
+        [-1, -1, -1, 6],
+        [-1, -1, -1, 5],
+        [-1, -1, -1, 4],
+        [0, 1, 2, 3], 
+        [7, 8, 9, 10]
+    ];
+
     wrap: HTMLElement;
+    chList: HTMLElement;
     control: HTMLElement;
     volumeBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
@@ -16,10 +25,11 @@ class UIController {
     hideTimer: ReturnType<typeof setTimeout> | null;
     delayHideTimer: ReturnType<typeof setTimeout> | null;
     onVolumeClick: () => void;
-    onTuning: (ch: number | 'up' | 'down') => void;
+    onTuning: (ch: number) => void;
 
-    constructor(wrap: HTMLElement, control: HTMLElement, volumeBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
+    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement, volumeBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
         this.wrap = wrap;
+        this.chList = chList;
         this.control = control;
         this.volumeBtn = volumeBtn;
         this.keepDisplaySw = keepDisplaySw;
@@ -51,6 +61,8 @@ class UIController {
 
     handleKeydown(e: KeyboardEvent, showAndHide: () => void): void {
         const keyName = e.key;
+        const activeElem = document.activeElement as HTMLElement;
+        const activeChFrame = activeElem && activeElem.classList.contains('chframe');
         switch (keyName) {
             case 'V':
             case 'v':
@@ -69,11 +81,23 @@ class UIController {
                 break;
             case 'ArrowUp':
             case 'ArrowRight':
-                this.onTuning('up');
-                break;
             case 'ArrowDown':
             case 'ArrowLeft':
-                this.onTuning('down');
+                this.onDirectionalKey(keyName);
+                break;
+            case ' ':
+                if (activeChFrame) {
+                    e.preventDefault();
+                    activeElem.click();
+                }
+                break;
+            case 'R':
+            case 'r':
+                if (activeChFrame) {
+                    e.preventDefault();
+                    const reloadBtn = activeElem.querySelector('.reload') as HTMLButtonElement;
+                    reloadBtn.click();
+                }
                 break;
         }
         const isNumKey = !isNaN(parseInt(keyName, 10));
@@ -94,6 +118,100 @@ class UIController {
         this.control.classList.toggle('slide', getScrollBottom() <= 10);
     }
 
+    onDirectionalKey(key: 'ArrowUp' | 'ArrowRight' | 'ArrowDown' | 'ArrowLeft'): void {
+        const chFrames = Array.from(this.chList.querySelectorAll('.chframe')) as HTMLElement[];
+        const current = document.activeElement as HTMLElement;
+        if (!current || !current.classList.contains('chframe')) {
+            const focusableFrame = chFrames.find(frame => frame.tabIndex === 0) as HTMLElement;
+            focusableFrame?.focus();
+            return;
+        }
+        const index = chFrames.indexOf(current);
+        let nextIndex = null as number | null;
+        const isChoiced = this.chList.classList.contains('choiced');
+        if (isChoiced) {
+            const listenFrameIndex = chFrames.findIndex(frame => frame.classList.contains('listening'));
+            if (listenFrameIndex === -1) return;
+            const tile = UIController.CHOICED_TILE;
+            const cols = tile[0].length;
+            const tileRow = tile.find(r => r.includes(index));
+            if (!tileRow) return;
+            const realTileLength = chFrames.length <= 7 ? 4 : 4 + Math.ceil((chFrames.length - 7) / cols);
+            if (index === listenFrameIndex) {
+                switch (key) {
+                    case 'ArrowUp':
+                    case 'ArrowDown':
+                        nextIndex = 0;
+                        if (nextIndex === listenFrameIndex) nextIndex++;
+                        break;
+                    case 'ArrowRight':
+                    case 'ArrowLeft':
+                        nextIndex = chFrames.length - 1;
+                        if (nextIndex === listenFrameIndex) nextIndex--;
+                        break;
+                }
+            } else {
+                const pos = {
+                    x: tileRow.findIndex(i => i === index),
+                    y: tile.indexOf(tileRow)
+                };
+                const moveOnce = (pos: { x: number, y: number }) => {
+                    switch (key) {
+                        case 'ArrowUp':
+                            pos.y--;
+                            break;
+                        case 'ArrowRight':
+                            pos.x++;
+                            break;
+                        case 'ArrowDown':
+                            pos.y++;
+                            break;
+                        case 'ArrowLeft':
+                            pos.x--;
+                            break;
+                    }
+                    pos.x = (pos.x + tileRow.length) % tileRow.length;
+                    pos.y = (pos.y + realTileLength) % realTileLength;
+                    return tile[pos.y][pos.x];
+                };
+                nextIndex = moveOnce(pos);
+                if (nextIndex === -1) { // 聴いているチャンネルの場所に移動しようとした場合
+                    nextIndex = listenFrameIndex;
+                } else if (nextIndex === listenFrameIndex) { // 隣が聴いているチャンネルだった場合
+                    nextIndex = moveOnce(pos);
+                }
+            }
+        } else {
+            const cols = 3;
+            const blankFrames = chFrames.length % cols === 0 ? 0 : cols - (chFrames.length % cols);
+            const totalFrames = chFrames.length + blankFrames;
+            switch (key) {
+                case 'ArrowUp':
+                    nextIndex = (index - cols + totalFrames) % totalFrames;
+                    break;
+                case 'ArrowRight':
+                    nextIndex = (index + 1) % totalFrames;
+                    break;
+                case 'ArrowDown':
+                    nextIndex = (index + cols) % totalFrames;
+                    break;
+                case 'ArrowLeft':
+                    nextIndex = (index - 1 + totalFrames) % totalFrames;
+                    break;
+            }
+            if (nextIndex >= chFrames.length) {
+                if (key === 'ArrowUp' || key === 'ArrowDown') {
+                    nextIndex = nextIndex % cols;
+                } else {
+                    nextIndex = key === 'ArrowRight' ? 0 : chFrames.length - 1;
+                }
+            }
+        }
+        chFrames[index].tabIndex = -1;
+        chFrames[nextIndex].tabIndex = 0;
+        chFrames[nextIndex].focus();
+    }
+
     showAndHide(): void {
         if (this.hideTimer) clearTimeout(this.hideTimer);
         if (this.delayHideTimer) clearTimeout(this.delayHideTimer);
@@ -112,7 +230,7 @@ class UIController {
         this.onVolumeClick = callback;
     }
 
-    setOnTuning(callback: (ch: number | 'up' | 'down') => void): void {
+    setOnTuning(callback: (ch: number) => void): void {
         this.onTuning = callback;
     }
 }
@@ -258,6 +376,7 @@ class ChannelFrame {
     createElement(): void {
         this.elem = document.createElement('div');
         this.elem.classList.add('chframe');
+        this.elem.tabIndex = -1;
         this.elem.innerHTML = `
         <video playsinline controlsList="noremoteplayback" autoplay muted></video>
         <div class="broadcast-wrap">
@@ -411,7 +530,7 @@ class App {
         this.keepDisplaySw = document.getElementById('keepshowsw') as HTMLInputElement;
         this.fullscreenBtn = document.getElementById('fsbutton') as HTMLButtonElement;
 
-        this.uiController = new UIController(this.wrap, this.control, this.volumeBtn, this.keepDisplaySw, this.fullscreenBtn);
+        this.uiController = new UIController(this.wrap, this.chList, this.control, this.volumeBtn, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
         this.chFrames = [];
         this.tuner = new Tuner(this.chFrames, this.chList, this.volumeBtn);
@@ -428,9 +547,12 @@ class App {
     }
 
     createChannelFrames(): void {
-        this.channelManager.getDisplayGR().forEach(ch => {
+        this.channelManager.getDisplayGR().forEach((ch, index) => {
             const chFrame = new ChannelFrame(ch, this.tuner);
             this.chFrames.push(chFrame);
+            if (index === 0) {
+                chFrame.elem.tabIndex = 0;
+            }
             this.chList.appendChild(chFrame.elem);
         });
     }
