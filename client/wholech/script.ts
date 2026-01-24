@@ -85,6 +85,7 @@ class UIController {
             case 'ArrowLeft':
                 this.onDirectionalKey(keyName);
                 break;
+            case 'Enter':
             case ' ':
                 if (activeChFrame) {
                     activeElem.click();
