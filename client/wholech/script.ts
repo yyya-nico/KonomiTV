@@ -87,14 +87,12 @@ class UIController {
                 break;
             case ' ':
                 if (activeChFrame) {
-                    e.preventDefault();
                     activeElem.click();
                 }
                 break;
             case 'R':
             case 'r':
                 if (activeChFrame) {
-                    e.preventDefault();
                     const reloadBtn = activeElem.querySelector('.reload') as HTMLButtonElement;
                     reloadBtn.click();
                 }
