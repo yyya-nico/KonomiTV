@@ -144,7 +144,8 @@ body {
         position: relative;
         cursor: pointer;
 
-        &:hover {
+        &:hover,
+        &:focus {
             .broadcast-title {
                 height: calc(1.2em * 3);
             }
@@ -226,7 +227,8 @@ body {
             }
         }
 
-        &:hover .control {
+        &:hover .control,
+        &:focus .control {
             bottom: calc(1.2em * 3);
             visibility: visible;
             opacity: 1;
