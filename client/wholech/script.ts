@@ -55,14 +55,17 @@ class UIController {
             case 'V':
             case 'v':
                 this.volumeBtn.click();
+                this.volumeBtn.focus();
                 break;
             case 'D':
             case 'd':
                 this.keepDisplaySw.click();
+                this.keepDisplaySw.focus();
                 break;
             case 'F':
             case 'f':
                 this.fullscreenBtn.click();
+                this.fullscreenBtn.focus();
                 break;
             case 'ArrowUp':
             case 'ArrowRight':
