@@ -4,6 +4,10 @@
     box-sizing: border-box;
 }
 
+:root {
+    --accent-color: #2d96ff;
+}
+
 html,
 body {
     height: 100%;
@@ -14,6 +18,11 @@ body {
     padding: 0;
     color: #efefef;
     background: #000;
+}
+
+:focus {
+    outline: 3px solid var(--accent-color);
+    outline-offset: -3px;
 }
 
 .material-icons {
@@ -264,12 +273,11 @@ body {
         position: absolute;
         inset: 0;
         margin: 0;
-        outline-offset: 0;
         cursor: pointer;
         appearance: none;
 
         &:checked + label {
-            color: #2d96ff;
+            color: var(--accent-color);
         }
     }
 
