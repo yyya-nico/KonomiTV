@@ -74,33 +74,23 @@ body {
     grid-template-columns: repeat(3, 1fr);
 
     &.choiced {
+        grid-template-areas:
+            "main main main g"
+            "main main main f"
+            "main main main e"
+            "a    b    c    d"
+            "h    i    j    k";
         grid-template-rows: repeat(4, 1fr);
         grid-template-columns: repeat(4, 1fr);
 
         .chframe {
-            &:nth-child(-n + 4) {
-                grid-row: 4;
-            }
-            &:nth-child(n + 4):nth-child(-n + 7):not(.listening) {
-                grid-column: 4;
-            }
-            @for $i from 1 through 4 {
+            @for $i from 1 through 11 {
                 &:nth-child(#{$i}) {
-                    grid-column: $i;
+                    grid-area: nth((a, b, c, d, e, f, g, h, i, j, k), $i);
                 }
             }
-            &:nth-child(5) {
-                grid-row: 3;
-            }
-            &:nth-child(6) {
-                grid-row: 2;
-            }
-            &:nth-child(7) {
-                grid-row: 1;
-            }
             &.listening {
-                grid-column: 1 / 4;
-                grid-row: 1 / 4;
+                grid-area: main;
 
                 .broadcast-wrap {
                     font-size: x-large;
