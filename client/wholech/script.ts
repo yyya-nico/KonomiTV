@@ -327,15 +327,14 @@ class Tuner {
         }
         this.chFrames.forEach((frame, index) => {
             frame.video.muted = newStates[index];
-            frame.elem.tabIndex = -1;
         });
         this.chList.classList.toggle('choiced', isSingleUnmute);
         if (isSingleUnmute) {
+            this.chFrames.filter(frame => frame.elem.tabIndex === 0).forEach(frame => {
+                frame.elem.tabIndex = -1;
+            });
             this.chFrames[unmutePos].elem.tabIndex = 0;
             this.chFrames[unmutePos].elem.focus();
-        } else {
-            this.chFrames[0].elem.tabIndex = 0;
-            this.chFrames[0].elem.focus();
         }
         this.updateVolumeButton();
     }
