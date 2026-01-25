@@ -297,7 +297,8 @@ class Tuner {
                 const index = (beforeMuted.indexOf(false) + relativeIndex + this.chFrames.length) % this.chFrames.length;
                 unmutePos = index;
             } else {
-                unmutePos = 0;
+                const focusableFrameIndex = this.chFrames.findIndex(frame => frame.focusable);
+                unmutePos = focusableFrameIndex;
             }
         } else if (ch === 'all') {
             unmutePos = 'all';
