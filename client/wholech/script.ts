@@ -330,10 +330,10 @@ class Tuner {
         });
         this.chList.classList.toggle('choiced', isSingleUnmute);
         if (isSingleUnmute) {
-            this.chFrames.filter(frame => frame.elem.tabIndex === 0).forEach(frame => {
-                frame.elem.tabIndex = -1;
+            this.chFrames.filter(frame => frame.focusable).forEach(frame => {
+                frame.focusable = false;
             });
-            this.chFrames[unmutePos].elem.tabIndex = 0;
+            this.chFrames[unmutePos].focusable = true;
             this.chFrames[unmutePos].elem.focus();
         }
         this.updateVolumeButton();
@@ -385,10 +385,18 @@ class ChannelFrame {
         this.initPlayer();
     }
 
+    get focusable(): boolean {
+        return this.elem.tabIndex === 0;
+    }
+
+    set focusable(value: boolean) {
+        this.elem.tabIndex = value ? 0 : -1;
+    }
+
     createElement(): void {
         this.elem = document.createElement('div');
         this.elem.classList.add('chframe');
-        this.elem.tabIndex = -1;
+        this.focusable = false;
         this.elem.innerHTML = `
         <video playsinline controlsList="noremoteplayback" autoplay muted></video>
         <div class="broadcast-wrap">
@@ -563,7 +571,7 @@ class App {
             const chFrame = new ChannelFrame(ch, this.tuner);
             this.chFrames.push(chFrame);
             if (index === 0) {
-                chFrame.elem.tabIndex = 0;
+                chFrame.focusable = true;
             }
             this.chList.appendChild(chFrame.elem);
         });
