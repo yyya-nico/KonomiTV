@@ -283,6 +283,9 @@ class Tuner {
     }
 
     tune(ch: number | 'up' | 'down' | 'all' | 'toggle-all' | ChannelFrame): void {
+        const beforeMuted = this.chFrames.map(frame => frame.video.muted);
+        const isSingleUnmuted = beforeMuted.filter(muted => !muted).length === 1;
+        const unmutedIndex = beforeMuted.indexOf(false);
         let unmutePos: number | 'all' | null = null;
         if (typeof ch === 'number') {
             ch = ch === 0 ? 10 : ch;
@@ -290,11 +293,9 @@ class Tuner {
             if (foundFrameIndex === -1) return;
             unmutePos = foundFrameIndex;
         } else if (ch === 'up' || ch === 'down') {
-            const beforeMuted = this.chFrames.map(frame => frame.video.muted);
-            const isSingleUnmuted = beforeMuted.filter(muted => !muted).length === 1;
             if (isSingleUnmuted) {
                 const relativeIndex = ch === 'up' ? 1 : -1;
-                const index = (beforeMuted.indexOf(false) + relativeIndex + this.chFrames.length) % this.chFrames.length;
+                const index = (unmutedIndex + relativeIndex + this.chFrames.length) % this.chFrames.length;
                 unmutePos = index;
             } else {
                 const focusableFrameIndex = this.chFrames.findIndex(frame => frame.focusable);
@@ -311,7 +312,7 @@ class Tuner {
             const currentFrame = ch;
             const index = this.chFrames.indexOf(currentFrame);
             if (index === -1) return;
-            if (currentFrame.video.muted) {
+            if (!isSingleUnmuted || unmutedIndex !== index) {
                 unmutePos = index;
             }
         }
