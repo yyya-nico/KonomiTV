@@ -1,0 +1,1 @@
+import{c as e}from"./logo-CvNxcGdY.js";import{al as t,M as s,ai as a,aw as n}from"./SnackbarsStore-IT_VMLII.js";const c=e("v-spacer","div","VSpacer");function l(){const o=t(!1);return s(()=>{window.requestAnimationFrame(()=>{o.value=!0})}),{ssrBootStyles:a(()=>o.value?void 0:{transition:"none !important"}),isBooted:n(o)}}export{c as V,l as u};
