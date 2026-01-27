@@ -22,7 +22,7 @@ class Version {
     static async fetchServerVersion(suppress_error: boolean = false): Promise<IVersionInformation | null> {
 
         // API リクエストを実行
-        const response = await APIClient.get<IVersionInformation>('/version');
+        const response = await APIClient.get<IVersionInformation>('/version', { timeout: 3 * 1000 });
 
         // エラー処理
         if (response.type === 'error') {
