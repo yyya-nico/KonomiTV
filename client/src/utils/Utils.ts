@@ -21,17 +21,24 @@ export default class Utils {
      */
     static getApiBaseUrl(): string {
 
-        return `${self.location.protocol}//${Utils.getApiHost()}/api`;
+        const api_host = Utils.getApiHost();
+
+        if (api_host.includes('konomi.tv')) {
+            return `${self.location.protocol}//${api_host}/api`;
+        }
+
+        const [ipv4, port] = api_host.split(':');
+        return `${self.location.protocol}//${ipv4.replaceAll('.', '-')}.local.konomi.tv:${port ?? 7000}/api`;
     }
 
 
     /**
      * API ホストを LocalStorage から取得する
-     * @returns API ホスト（未設定の場合は7000ポートが返る）
+     * @returns API ホスト（未設定の場合はループバックの7000ポートが返る）
      */
     static getApiHost(): string {
 
-        return localStorage.getItem('KonomiTV-ApiHost') ?? `${self.location.hostname}:7000`;
+        return localStorage.getItem('KonomiTV-ApiHost') ?? '127.0.0.1:7000';
     }
 
 
