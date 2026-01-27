@@ -44,7 +44,7 @@
         "vue-virtual-scroller": "^2.0.0-beta.8",
         "vuedraggable": "^4.1.0",
         "vuetify": "~3.7.1",
-        "web-bml": "github:yyya-nico/web-bml#f01d4ce4511d253b0ab3be7794fd2820e2462c3f"
+        "web-bml": "github:tsukumijima/web-bml#9101efb87052b6f63c6b58c7206df0893c81f9da"
     },
     "devDependencies": {
         "@babel/types": "^7.25.4",
