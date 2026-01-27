@@ -118,7 +118,7 @@ def main():
         f'    この PC 上の KonomiTV を version {TARGET_VERSION} へ[bold]アップデート[/bold]するには [bold cyan]2[/bold cyan] を、',
         '    この PC 上の KonomiTV を[bold]アンインストール[/bold]するには [bold cyan]3[/bold cyan] を入力してください。',
         '',
-        '    cors-free-with-pastepg ブランチの最新コミットが反映されている[bold]開発版をインストール[/bold]するには [bold cyan]4[/bold cyan] を、',
+        '    cors-free ブランチの最新コミットが反映されている[bold]開発版をインストール[/bold]するには [bold cyan]4[/bold cyan] を、',
         '    [bold]開発版へアップデート[/bold]するには [bold cyan]5[/bold cyan] を入力してください。',
         '    なお、開発版の安定動作は保証されていないため、予めご了承の上ご利用ください。',
     ], padding=(1, 2, 1, 2))

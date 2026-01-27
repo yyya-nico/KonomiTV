@@ -496,8 +496,8 @@ def Installer(version: str) -> None:
     if is_git_installed is True:
 
         # git clone でソースコードをダウンロード
-        ## latest の場合は cors-free-with-pastepg ブランチを、それ以外は指定されたバージョンのタグをチェックアウト
-        revision = 'cors-free-with-pastepg' if version == 'latest' else f'v{version}'
+        ## latest の場合は cors-free ブランチを、それ以外は指定されたバージョンのタグをチェックアウト
+        revision = 'cors-free' if version == 'latest' else f'v{version}'
         result = RunSubprocess(
             'KonomiTV のソースコードを Git でダウンロードしています…',
             ['git', 'clone', '-b', revision, 'https://github.com/yyya-nico/KonomiTV.git', install_path.name],
@@ -517,9 +517,9 @@ def Installer(version: str) -> None:
         progress = CreateDownloadInfiniteProgress()
 
         # GitHub からソースコードをダウンロード
-        ## latest の場合は cors-free-with-pastepg ブランチを、それ以外は指定されたバージョンのタグをダウンロード
+        ## latest の場合は cors-free ブランチを、それ以外は指定されたバージョンのタグをダウンロード
         if version == 'latest':
-            source_code_response = requests.get('https://codeload.github.com/yyya-nico/KonomiTV/zip/refs/heads/cors-free-with-pastepg')
+            source_code_response = requests.get('https://codeload.github.com/yyya-nico/KonomiTV/zip/refs/heads/cors-free')
         else:
             source_code_response = requests.get(f'https://codeload.github.com/yyya-nico/KonomiTV/zip/refs/tags/v{version}')
         task_id = progress.add_task('', total=None)
@@ -537,7 +537,7 @@ def Installer(version: str) -> None:
         # ソースコードを解凍して展開
         shutil.unpack_archive(source_code_file.name, install_path.parent, format='zip')
         if version == 'latest':
-            shutil.move(install_path.parent / 'KonomiTV-cors-free-with-pastepg/', install_path)
+            shutil.move(install_path.parent / 'KonomiTV-cors-free/', install_path)
         else:
             shutil.move(install_path.parent / f'KonomiTV-{version}/', install_path)
         Path(source_code_file.name).unlink()
