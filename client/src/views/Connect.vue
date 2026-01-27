@@ -79,6 +79,14 @@ export default defineComponent({
     computed: {
         ...mapStores(useVersionStore),
     },
+    mounted() {
+        // ルーターから接続に失敗したホストが渡されていたら表示
+        if (this.$route.query.failed_host) {
+            this.host = this.$route.query.failed_host as string;
+            Message.error('KonomiTVサーバーへの接続に失敗しました。ホスト設定を確認してください。');
+            return;
+        }
+    },
     methods: {
         async connect() {
 
@@ -99,7 +107,8 @@ export default defineComponent({
                 }
                 // メインに遷移
                 // ブラウザバックで接続ページに戻れないようにする
-                await this.$router.replace({path: '/tv/'});
+                // クエリパラメータをクリア
+                await this.$router.replace({path: '/tv/', query: {}});
             } finally {
                 // バリデーション終了
                 this.is_validating = false;

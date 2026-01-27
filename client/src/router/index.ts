@@ -2,6 +2,8 @@
 
 import { createRouter, createWebHistory } from 'vue-router';
 
+import Version from '@/services/Version';
+import useVersionStore from '@/stores/VersionStore';
 import Utils from '@/utils';
 
 
@@ -188,14 +190,33 @@ const router = createRouter({
     }
 });
 
-router.beforeEach((to, from, next) => {
-    if (to.path !== '/' && !Utils.hasApiHost()) {
+router.beforeEach(async (to, from, next) => {
+    // Connect ページ (/) へのアクセスは常に許可
+    if (to.path === '/') {
+        next();
+        return;
+    }
+
+    // API ホストが未設定の場合はConnect ページへ
+    if (!Utils.hasApiHost()) {
         next({path: '/'});
         return;
     }
 
+    // VersionStore の接続状態をキャッシュから確認
+    const versionStore = useVersionStore();
+    if (versionStore.server_version_info === null && !(await Version.fetchServerVersion(true))) {
+        // サーバーに接続できていない場合、Connect ページへリダイレクト（エラーメッセージ付き）
+        const failed_host = Utils.getApiHost();
+        Utils.deleteApiHost();
+        next({path: '/', query: {failed_host}});
+        return;
+    }
+
+    // 通常通り遷移
     next();
 });
+
 
 // ルーティングの変更時に View Transitions API を適用する
 // ref: https://developer.mozilla.org/ja/docs/Web/API/View_Transitions_API
