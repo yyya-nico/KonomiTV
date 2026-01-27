@@ -18,7 +18,8 @@
                             :density="is_form_dense ? 'compact' : 'default'"
                             v-model="host">
                         </v-text-field>
-                        <v-btn type="submit" class="connect-button mt-5" color="secondary" variant="flat" width="100%" height="56">
+                        <v-btn type="submit" class="connect-button mt-5" color="secondary" variant="flat" width="100%" height="56"
+                            :loading="is_validating" :disabled="is_validating">
                             <Icon icon="fa:sign-in" class="mr-2" />接続
                         </v-btn>
                     </v-form>
@@ -45,6 +46,8 @@ export default defineComponent({
 
             // フォームを小さくするかどうか
             is_form_dense: Utils.isSmartphoneHorizontal(),
+            // バリデーション中かどうか
+            is_validating: false,
             host: '' as string,
             rules: [
                 (value: string) => {
@@ -81,20 +84,28 @@ export default defineComponent({
     methods: {
         async connect() {
 
-            const validateResult =  await (this.$refs.connect as VForm).validate();
+            // バリデーション開始
+            this.is_validating = true;
 
-            if (!validateResult.valid) {
-                Message.error(validateResult.errors[0].errorMessages[0]);
-                return;
-            }
+            try {
+                const validateResult =  await (this.$refs.connect as VForm).validate();
 
-            await this.versionStore.fetchServerVersion(true);
-            if (this.versionStore.is_version_mismatch) {
-                Message.warning('このKonomiTVクライアントとKonomiTVサーバーのバージョンが異なるため、正常な動作が保証されません。');
+                if (!validateResult.valid) {
+                    Message.error(validateResult.errors[0].errorMessages[0]);
+                    return;
+                }
+
+                await this.versionStore.fetchServerVersion(true);
+                if (this.versionStore.is_version_mismatch) {
+                    Message.warning('このKonomiTVクライアントとKonomiTVサーバーのバージョンが異なるため、正常な動作が保証されません。');
+                }
+                // メインに遷移
+                // ブラウザバックで接続ページに戻れないようにする
+                await this.$router.replace({path: '/tv/'});
+            } finally {
+                // バリデーション終了
+                this.is_validating = false;
             }
-            // メインに遷移
-            // ブラウザバックで接続ページに戻れないようにする
-            await this.$router.replace({path: '/tv/'});
         },
     }
 });
