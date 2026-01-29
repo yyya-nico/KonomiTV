@@ -139,6 +139,12 @@ body {
             .broadcast-title {
                 height: calc(1.2em * 3);
             }
+
+            .control {
+                bottom: calc(1.2em * 3);
+                visibility: visible;
+                opacity: 1;
+            }
         }
 
         video {
@@ -215,13 +221,6 @@ body {
             > * {
                 display: inline-block;
             }
-        }
-
-        &:hover .control,
-        &:focus .control {
-            bottom: calc(1.2em * 3);
-            visibility: visible;
-            opacity: 1;
         }
     }
 }
