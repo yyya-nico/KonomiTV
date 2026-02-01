@@ -12,7 +12,7 @@ class UIController {
         [-1, -1, -1, 6],
         [-1, -1, -1, 5],
         [-1, -1, -1, 4],
-        [0, 1, 2, 3], 
+        [0, 1, 2, 3],
         [7, 8, 9, 10]
     ];
 
@@ -99,9 +99,11 @@ class UIController {
                 }
                 break;
             case 'PageUp':
+                e.preventDefault();
                 this.onTuning('up');
                 break;
             case 'PageDown':
+                e.preventDefault();
                 this.onTuning('down');
                 break;
         }
