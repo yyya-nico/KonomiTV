@@ -187,7 +187,7 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, watch, onMounted } from 'vue';
+import { ref, computed, watch } from 'vue';
 
 import ReservationProgramInfo from '@/components/Reservations/ReservationProgramInfo.vue';
 import ReservationRecordingSettings from '@/components/Reservations/ReservationRecordingSettings.vue';
@@ -195,7 +195,7 @@ import Message from '@/message';
 import { type IChannel } from '@/services/Channels';
 import { type IProgram } from '@/services/Programs';
 import Reservations, { type IReservation, type IRecordSettings } from '@/services/Reservations';
-import useServerSettingsStore from '@/stores/ServerSettingsStore';
+import useVersionStore from '@/stores/VersionStore';
 import { ProgramUtils } from '@/utils';
 
 // Props
@@ -226,9 +226,9 @@ const isVisible = computed({
     set: (value) => emit('update:modelValue', value),
 });
 
-// サーバー設定（バックエンド種別の判定用）
-const serverSettingsStore = useServerSettingsStore();
-const serverSettings = computed(() => serverSettingsStore.server_settings);
+// サーバー情報（バックエンド種別の判定用）
+const versionStore = useVersionStore();
+const serverVersionInfo = computed(() => versionStore.server_version_info);
 
 // アクティブなタブ
 const activeTab = ref<'info' | 'settings'>('info');
@@ -266,7 +266,7 @@ const hasRealReservation = computed(() => hasReservation.value && !isMockReserva
 const displayProgram = computed(() => props.reservation?.program ?? props.program ?? null);
 
 // EDCB バックエンドかどうか
-const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
+const isEDCBBackend = computed(() => serverVersionInfo.value?.backend === 'EDCB');
 
 // 録画設定タブを表示するかどうか
 // - 実際の予約がある場合: 表示 (既存予約の設定編集)
@@ -298,11 +298,6 @@ const isPartialRecording = computed(() => recordingAvailability.value === 'Parti
 
 // チューナー不足（録画不可）
 const isUnavailableRecording = computed(() => recordingAvailability.value === 'Unavailable');
-
-// サーバー設定を取得
-onMounted(async () => {
-    await serverSettingsStore.fetchServerSettingsOnce();
-});
 
 // ドロワーが開かれた時の処理
 watch(isVisible, (newValue) => {

@@ -133,9 +133,9 @@ import Message from '@/message';
 import { IChannel, ChannelTypePretty } from '@/services/Channels';
 import { IProgram, ITimeTableProgram } from '@/services/Programs';
 import Reservations, { IReservation, IRecordSettingsDefault } from '@/services/Reservations';
-import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import useSettingsStore from '@/stores/SettingsStore';
 import useTimeTableStore, { CHANNEL_TYPE_DISPLAY_ORDER } from '@/stores/TimeTableStore';
+import useVersionStore from '@/stores/VersionStore';
 import Utils, { dayjs } from '@/utils';
 
 
@@ -146,12 +146,12 @@ const timetableStore = useTimeTableStore();
 // コンポーネント参照
 const timetableGridRef = ref<InstanceType<typeof TimeTableGrid> | null>(null);
 
-// サーバー設定（バックエンド種別の判定用）
-const serverSettingsStore = useServerSettingsStore();
-const serverSettings = computed(() => serverSettingsStore.server_settings);
+// サーバー情報（バックエンド種別の判定用）
+const versionStore = useVersionStore();
+const serverVersionInfo = computed(() => versionStore.server_version_info);
 
 // EDCB バックエンドかどうか
-const isEDCBBackend = computed(() => serverSettings.value.general.backend === 'EDCB');
+const isEDCBBackend = computed(() => serverVersionInfo.value?.backend === 'EDCB');
 
 // UI 状態
 const isSettingsDialogOpen = ref(false);
@@ -567,9 +567,6 @@ onMounted(async () => {
     // ウィンドウリサイズイベントリスナーを登録
     // 画面回転やウィンドウサイズ変更時に、レイアウト判定の再計算をトリガーする
     window.addEventListener('resize', onWindowResize);
-
-    // サーバー設定を取得（バックエンド種別の判定用）
-    await serverSettingsStore.fetchServerSettingsOnce();
 
     // 番組表データの初期ロード
     await timetableStore.initialLoad();
