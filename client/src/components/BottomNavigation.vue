@@ -16,7 +16,8 @@
             <span class="mt-1">録画予約</span>
         </v-btn>
         <v-btn class="bottom-navigation-button" to="/captures/"
-            :class="{'v-btn--active': $route.path.startsWith('/captures')}">
+            :class="{'v-btn--active': $route.path.startsWith('/captures')}"
+            disabled>
             <Icon icon="fluent:image-multiple-24-regular" width="30px" />
             <span class="mt-1">キャプチャ</span>
         </v-btn>

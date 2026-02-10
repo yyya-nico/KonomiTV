@@ -33,7 +33,7 @@
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/captures')}"
-            v-ftooltip.right="'キャプチャ'" to="/captures/">
+            v-ftooltip.right="'キャプチャ'" to="/captures/" disabled>
             <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
@@ -156,6 +156,10 @@ export default defineComponent({
         &--active {
             color: rgb(var(--v-theme-primary));
             background: #433532A0;
+        }
+        &[disabled] {
+            pointer-events: none;
+            opacity: 0.26;
         }
         + .watch-navigation__link {
             margin-top: 4px;

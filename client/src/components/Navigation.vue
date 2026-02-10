@@ -53,7 +53,7 @@
                             'navigation__link--active': $route.path.startsWith('/captures'),
                             'navigation__link--icon-only': iconOnly,
                         }"
-                        v-ftooltip.right="iconOnly ? 'キャプチャ' : ''">
+                        v-ftooltip.right="iconOnly ? 'キャプチャ' : ''" disabled>
                         <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                         <span v-if="!iconOnly" class="navigation__link-text">キャプチャ</span>
                     </router-link>
@@ -252,6 +252,10 @@ export default defineComponent({
                     &:hover {
                         background: #5b2d3c;
                     }
+                }
+                &[disabled] {
+                    pointer-events: none;
+                    opacity: 0.26;
                 }
                 &--highlight {
                     color: rgb(var(--v-theme-secondary-lighten-1));
