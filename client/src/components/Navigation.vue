@@ -44,7 +44,8 @@
                             'navigation__link--active': $route.path.startsWith('/reservations'),
                             'navigation__link--icon-only': iconOnly,
                         }"
-                        v-ftooltip.right="iconOnly ? '録画予約' : ''">
+                        v-ftooltip.right="iconOnly ? '録画予約' : ''"
+                        :disabled="versionStore.server_version_info?.backend !== 'EDCB'">
                         <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
                         <span v-if="!iconOnly" class="navigation__link-text">録画予約</span>
                     </router-link>

@@ -28,7 +28,8 @@
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{'watch-navigation__link--active': $route.path.startsWith('/reservations')}"
-            v-ftooltip.right="'録画予約'" to="/reservations/">
+            v-ftooltip.right="'録画予約'" to="/reservations/"
+            :disabled="versionStore.server_version_info?.backend !== 'EDCB'">
             <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
@@ -60,11 +61,12 @@ import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import usePlayerStore from '@/stores/PlayerStore';
+import useVersionStore from '@/stores/VersionStore';
 
 export default defineComponent({
     name: 'Watch-Navigation',
     computed: {
-        ...mapStores(usePlayerStore),
+        ...mapStores(usePlayerStore, useVersionStore),
     }
 });
 

@@ -11,7 +11,8 @@
             <span class="mt-1">ビデオをみる</span>
         </v-btn>
         <v-btn class="bottom-navigation-button" to="/reservations/"
-            :class="{'v-btn--active': $route.path.startsWith('/reservations')}">
+            :class="{'v-btn--active': $route.path.startsWith('/reservations')}"
+            :disabled="versionStore.server_version_info?.backend !== 'EDCB'">
             <Icon icon="fluent:timer-16-regular" width="30px" />
             <span class="mt-1">録画予約</span>
         </v-btn>
@@ -28,6 +29,19 @@
         </v-btn>
     </v-bottom-navigation>
 </template>
+<script lang="ts">
+import { mapStores } from 'pinia';
+import { defineComponent } from 'vue';
+
+import useVersionStore from '@/stores/VersionStore';
+
+export default defineComponent({
+    name: 'BottomNavigation',
+    computed: {
+        ...mapStores(useVersionStore),
+    }
+});
+</script>
 <style lang="scss">
 
 .bottom-navigation-container .v-btn--active > .v-btn__overlay {
