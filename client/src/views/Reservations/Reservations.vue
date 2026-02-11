@@ -227,8 +227,7 @@ onUnmounted(() => {
 .reservations-all-container-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
-    min-width: 0;  // very important!!! これがないと要素がはみ出す
+    width: calc(100% - var(--navigation-width));
 }
 
 .reservations-all-container {

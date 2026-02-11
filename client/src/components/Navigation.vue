@@ -140,14 +140,8 @@ export default defineComponent({
 
 .navigation-container {
     flex-shrink: 0;
-    width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
+    width: var(--navigation-width);  // .navigation を fixed にするため、浮いた分の幅を確保する
     background: rgb(var(--v-theme-background-lighten-1));
-    @include smartphone-horizontal {
-        width: 210px;
-    }
-    @include smartphone-horizontal-short {
-        width: 190px;
-    }
     @include smartphone-vertical {
         display: none;
     }
@@ -165,7 +159,7 @@ export default defineComponent({
 
     .navigation {
         position: fixed;
-        width: 220px;
+        width: var(--navigation-width);
         top: 65px;  // ヘッダーの高さ分
         left: 0px;
         // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
@@ -176,10 +170,6 @@ export default defineComponent({
         z-index: 1;
         @include smartphone-horizontal {
             top: 48px;
-            width: 210px;
-        }
-        @include smartphone-horizontal-short {
-            width: 190px;
         }
 
         // アイコンのみモード: 幅を68pxに縮小

@@ -142,7 +142,7 @@ onMounted(async () => {
 .videos-search-container-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
+    width: calc(100% - var(--navigation-width));
 }
 
 .videos-search-container {

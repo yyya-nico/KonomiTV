@@ -90,6 +90,18 @@ html {
         overflow: hidden !important;
     }
 
+    // 左側ナビゲーションの幅
+    --navigation-width: 240px;
+    @include smartphone-horizontal {
+        --navigation-width: 210px;
+    }
+    @include smartphone-horizontal-short {
+        --navigation-width: 190px;
+    }
+    @include smartphone-vertical {
+        --navigation-width: 0px;
+    }
+
     // 番組表のジャンルハイライトカラー (REGZA 風)
     // TimeTable.vue と TimeTableSettings.vue 共通で使う
     --timetable-genre-highlight-white: #ffffff;

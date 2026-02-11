@@ -175,7 +175,7 @@ onMounted(async () => {
 .mylist-container-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
+    width: calc(100% - var(--navigation-width));
     @include smartphone-vertical {
         padding-top: 10px !important;
     }
