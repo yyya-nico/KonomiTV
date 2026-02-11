@@ -51,7 +51,7 @@
                         :isLoading="is_loading"
                         :forWatchedHistory="true"
                         @more="$router.push('/watched-history/')" />
-                    <router-link v-ripple class="floating-button" to="/pastepg/">
+                    <router-link v-ripple class="floating-button" to="/past-timetable/">
                         <div class="floating-button__content">
                             <Icon class="floating-button__icon" icon="fluent:calendar-20-regular" width="26px" />
                             <div class="floating-button__text">過去番組表</div>

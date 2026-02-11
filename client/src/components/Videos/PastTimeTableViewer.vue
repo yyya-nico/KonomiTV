@@ -1,30 +1,30 @@
 <template>
-    <div class="past-epg-viewer">
-        <div class="past-epg-viewer__header" v-if="!hideHeader">
-            <h2 class="past-epg-viewer__title">
-                <div v-if="showBackButton" v-ripple class="past-epg-viewer__title-back" @click="$router.back()">
+    <div class="past-timetable-viewer">
+        <div class="past-timetable-viewer__header" v-if="!hideHeader">
+            <h2 class="past-timetable-viewer__title">
+                <div v-if="showBackButton" v-ripple class="past-timetable-viewer__title-back" @click="$router.back()">
                     <Icon icon="fluent:chevron-left-12-filled" width="27px" />
                 </div>
-                <span class="past-epg-viewer__title-text">{{title}}</span>
+                <span class="past-timetable-viewer__title-text">{{title}}</span>
             </h2>
         </div>
-        <div class="past-epg-viewer__grid"
+        <div class="past-timetable-viewer__grid"
             :class="{
-                'past-epg-viewer__grid--loading': isLoading,
-                'past-epg-viewer__grid--empty': displayTotal === 0 && showEmptyMessage
+                'past-timetable-viewer__grid--loading': isLoading,
+                'past-timetable-viewer__grid--empty': displayTotal === 0 && showEmptyMessage
             }">
-            <div class="past-epg-viewer__empty"
+            <div class="past-timetable-viewer__empty"
                 :class="{
-                    'past-epg-viewer__empty--show': displayTotal === 0 && showEmptyMessage,
+                    'past-timetable-viewer__empty--show': displayTotal === 0 && showEmptyMessage,
                 }">
-                <div class="past-epg-viewer__empty-content">
-                    <Icon class="past-epg-viewer__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
+                <div class="past-timetable-viewer__empty-content">
+                    <Icon class="past-timetable-viewer__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
                     <h2 v-html="emptyMessage"></h2>
-                    <div class="past-epg-viewer__empty-submessage"
+                    <div class="past-timetable-viewer__empty-submessage"
                         v-if="emptySubMessage" v-html="emptySubMessage"></div>
                 </div>
             </div>
-            <div class="past-epg-viewer__grid-content">
+            <div class="past-timetable-viewer__grid-content">
                 <v-infinite-scroll v-if="!isLoading" id="epg-container" side="start" @load="load">
                     <template v-slot:empty>すべて読み込みました</template>
                     <div id="channels">
@@ -172,7 +172,7 @@ const load = async ({ done }) => {
 </script>
 <style lang="scss" scoped>
 
-.past-epg-viewer {
+.past-timetable-viewer {
     display: flex;
     flex-direction: column;
     width: 100%;
@@ -211,7 +211,7 @@ const load = async ({ done }) => {
                 display: flex;
             }
 
-            & + .past-epg-viewer__title-text {
+            & + .past-timetable-viewer__title-text {
                 @include smartphone-vertical {
                     margin-left: 32px;
                 }
@@ -241,7 +241,7 @@ const load = async ({ done }) => {
         }
 
         &--loading {
-            .past-epg-viewer__grid-content {
+            .past-timetable-viewer__grid-content {
                 visibility: hidden;
                 opacity: 0;
             }
@@ -251,7 +251,7 @@ const load = async ({ done }) => {
             min-height: 200px;
         }
 
-        .past-epg-viewer__grid-content {
+        .past-timetable-viewer__grid-content {
             height: 100%;
             transition: visibility 0.2s ease, opacity 0.2s ease;
         }
@@ -281,7 +281,7 @@ const load = async ({ done }) => {
         &-content {
             text-align: center;
 
-            .past-epg-viewer__empty-icon {
+            .past-timetable-viewer__empty-icon {
                 color: rgb(var(--v-theme-text-darken-1));
             }
 
@@ -302,7 +302,7 @@ const load = async ({ done }) => {
                 }
             }
 
-            .past-epg-viewer__empty-submessage {
+            .past-timetable-viewer__empty-submessage {
                 margin-top: 8px;
                 color: rgb(var(--v-theme-text-darken-1));
                 font-size: 15px;

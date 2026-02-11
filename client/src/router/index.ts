@@ -68,9 +68,9 @@ const router = createRouter({
             component: () => import('@/views/Videos/Watch.vue'),
         },
         {
-            path: '/pastepg/',
-            name: 'Past EPG',
-            component: () => import('@/views/PastEPG.vue'),
+            path: '/past-timetable/',
+            name: 'Past TimeTable',
+            component: () => import('@/views/PastTimeTable.vue'),
         },
         {
             path: '/timetable/',

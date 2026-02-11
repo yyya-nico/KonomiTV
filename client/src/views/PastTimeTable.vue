@@ -3,13 +3,13 @@
         <HeaderBar />
         <main>
             <Navigation />
-            <div class="pastepg-container-wrapper">
-                <div class="pastepg-container">
+            <div class="past-timetable-container-wrapper">
+                <div class="past-timetable-container">
                     <Breadcrumbs :crumbs="[
                         { name: 'ホーム', path: '/' },
-                        { name: '過去番組表', path: '/pastepg/', disabled: true },
+                        { name: '過去番組表', path: '/past-timetable/', disabled: true },
                     ]" />
-                    <PastEPGViewer
+                    <PastTimeTableViewer
                         title="過去番組表"
                         :programs="programs"
                         :total="total_programs"
@@ -31,7 +31,7 @@ import { useRoute, useRouter } from 'vue-router';
 import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
-import PastEPGViewer from '@/components/Videos/PastEPGViewer.vue';
+import PastTimeTableViewer from '@/components/Videos/PastTimeTableViewer.vue';
 import { IRecordedProgram } from '@/services/Videos';
 import Videos from '@/services/Videos';
 
@@ -78,7 +78,7 @@ onMounted(async () => {
 </script>
 <style lang="scss" scoped>
 
-.pastepg-container-wrapper {
+.past-timetable-container-wrapper {
     display: flex;
     flex-direction: column;
     width: calc(100% - var(--navigation-width));
@@ -88,7 +88,7 @@ onMounted(async () => {
     }
 }
 
-.pastepg-container {
+.past-timetable-container {
     display: flex;
     flex-direction: column;
     width: fit-content;
