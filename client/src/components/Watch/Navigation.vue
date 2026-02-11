@@ -27,14 +27,19 @@
             <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-            :class="{'watch-navigation__link--active': $route.path.startsWith('/reservations')}"
-            v-ftooltip.right="'録画予約'" to="/reservations/"
-            :disabled="versionStore.server_version_info?.backend !== 'EDCB'">
+            :class="{
+                'watch-navigation__link--active': $route.path.startsWith('/reservations'),
+                'watch-navigation__llink--disabled': versionStore.server_version_info?.backend !== 'EDCB',
+            }"
+            v-ftooltip.right="'録画予約'" to="/reservations/">
             <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-            :class="{'watch-navigation__link--active': $route.path.startsWith('/captures')}"
-            v-ftooltip.right="'キャプチャ'" to="/captures/" disabled>
+            :class="{
+                'watch-navigation__link--active': $route.path.startsWith('/captures'),
+                'watch-navigation__link--disabled': true,
+            }"
+            v-ftooltip.right="'キャプチャ'" to="/captures/">
             <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
@@ -159,7 +164,7 @@ export default defineComponent({
             color: rgb(var(--v-theme-primary));
             background: #433532A0;
         }
-        &[disabled] {
+        &--disabled {
             pointer-events: none;
             opacity: 0.26;
         }

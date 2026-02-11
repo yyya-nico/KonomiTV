@@ -43,9 +43,9 @@
                         :class="{
                             'navigation__link--active': $route.path.startsWith('/reservations'),
                             'navigation__link--icon-only': iconOnly,
+                            'navigation__link--disabled': versionStore.server_version_info?.backend !== 'EDCB',
                         }"
-                        v-ftooltip.right="iconOnly ? '録画予約' : ''"
-                        :disabled="versionStore.server_version_info?.backend !== 'EDCB'">
+                        v-ftooltip.right="iconOnly ? '録画予約' : ''">
                         <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
                         <span v-if="!iconOnly" class="navigation__link-text">録画予約</span>
                     </router-link>
@@ -53,8 +53,9 @@
                         :class="{
                             'navigation__link--active': $route.path.startsWith('/captures'),
                             'navigation__link--icon-only': iconOnly,
+                            'navigation__link--disabled': true,
                         }"
-                        v-ftooltip.right="iconOnly ? 'キャプチャ' : ''" disabled>
+                        v-ftooltip.right="iconOnly ? 'キャプチャ' : ''">
                         <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
                         <span v-if="!iconOnly" class="navigation__link-text">キャプチャ</span>
                     </router-link>
@@ -254,7 +255,7 @@ export default defineComponent({
                         background: #5b2d3c;
                     }
                 }
-                &[disabled] {
+                &--disabled {
                     pointer-events: none;
                     opacity: 0.26;
                 }
