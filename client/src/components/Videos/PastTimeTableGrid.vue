@@ -1,30 +1,10 @@
 <template>
-    <div class="past-timetable-viewer">
-        <div class="past-timetable-viewer__header" v-if="!hideHeader">
-            <h2 class="past-timetable-viewer__title">
-                <div v-if="showBackButton" v-ripple class="past-timetable-viewer__title-back" @click="$router.back()">
-                    <Icon icon="fluent:chevron-left-12-filled" width="27px" />
-                </div>
-                <span class="past-timetable-viewer__title-text">{{title}}</span>
-            </h2>
-        </div>
-        <div class="past-timetable-viewer__grid"
+    <div class="past-timetable-grid">
+        <div class="past-timetable-grid__grid"
             :class="{
-                'past-timetable-viewer__grid--loading': isLoading,
-                'past-timetable-viewer__grid--empty': displayTotal === 0 && showEmptyMessage
+                'past-timetable-grid__grid--loading': isLoading
             }">
-            <div class="past-timetable-viewer__empty"
-                :class="{
-                    'past-timetable-viewer__empty--show': displayTotal === 0 && showEmptyMessage,
-                }">
-                <div class="past-timetable-viewer__empty-content">
-                    <Icon class="past-timetable-viewer__empty-icon" :icon="emptyIcon" width="54px" height="54px" />
-                    <h2 v-html="emptyMessage"></h2>
-                    <div class="past-timetable-viewer__empty-submessage"
-                        v-if="emptySubMessage" v-html="emptySubMessage"></div>
-                </div>
-            </div>
-            <div class="past-timetable-viewer__grid-content">
+            <div class="past-timetable-grid__grid-content">
                 <v-infinite-scroll v-if="!isLoading" id="epg-container" side="start" @load="load">
                     <template v-slot:empty>すべて読み込みました</template>
                     <div id="channels">
@@ -35,9 +15,9 @@
                     </div>
                     <div id="times">
                         <div v-for="(time, i) in timeLabels" :key="i" class="time-label">
-                            {{ time.getHours() === 0 || i === 0
-                                ? time.toLocaleString([], { month: 'numeric', day: 'numeric', weekday: 'short', hour: 'numeric' })
-                                : time.toLocaleTimeString([], { hour: 'numeric' }) }}
+                            <span v-if="time.getHours() === 0 || i === 0" class="date"
+                                >{{ time.toLocaleDateString([], { month: 'numeric', day: 'numeric', weekday: 'short' }) }}</span
+                            >{{time.toLocaleTimeString([], { hour: 'numeric' }) }}
                         </div>
                     </div>
                     <div id="schedule"
@@ -78,7 +58,6 @@ const router = useRouter();
 
 // Props
 const props = withDefaults(defineProps<{
-    title: string;
     programs: IRecordedProgram[];
     total: number;
     updatePage: (page: number) => Promise<void>;
@@ -172,52 +151,15 @@ const load = async ({ done }) => {
 </script>
 <style lang="scss" scoped>
 
-.past-timetable-viewer {
+.past-timetable-grid{
     display: flex;
     flex-direction: column;
-    width: 100%;
-    height: 100%;
-
-    &__header {
-        display: flex;
-        align-items: center;
-        @include smartphone-vertical {
-            padding: 0px 8px;
-        }
-    }
-
-    &__title {
-        display: flex;
-        align-items: center;
-        position: relative;
-        font-size: 24px;
-        font-weight: 700;
-        padding-top: 8px;
-        padding-bottom: 20px;
-        @include smartphone-vertical {
-            font-size: 22px;
-            padding-bottom: 16px;
-        }
-
-        &-back {
-            display: none;
-            position: absolute;
-            left: -8px;
-            padding: 6px;
-            border-radius: 50%;
-            color: rgb(var(--v-theme-text));
-            cursor: pointer;
-            @include smartphone-vertical {
-                display: flex;
-            }
-
-            & + .past-timetable-viewer__title-text {
-                @include smartphone-vertical {
-                    margin-left: 32px;
-                }
-            }
-        }
-    }
+    position: relative;
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: rgb(var(--v-theme-background));
 
     &__grid {
         display: flex;
@@ -225,108 +167,34 @@ const load = async ({ done }) => {
         position: relative;
         width: fit-content;
         max-width: 100%;
-        --constant-height: 200px;
-        height: calc(100vh - var(--constant-height));
-        background-color: rgb(var(--v-theme-background-lighten-1));
-        border-radius: 8px;
-        overflow: clip;
+        height: 100vh;
+        height: 100dvh;
 
         @include smartphone-horizontal {
-            --constant-height: 125px;
+            margin-top: 48px;
             font-size: 15px;
         }
         @include smartphone-vertical {
-            --constant-height: 150px;
+            margin-top: 14px;
             font-size: 14px;
         }
 
         &--loading {
-            .past-timetable-viewer__grid-content {
+            .past-timetable-grid__grid-content {
                 visibility: hidden;
                 opacity: 0;
             }
         }
-        &--empty {
-            height: 100%;
-            min-height: 200px;
-        }
 
-        .past-timetable-viewer__grid-content {
+        .past-timetable-grid__grid-content {
             height: 100%;
             transition: visibility 0.2s ease, opacity 0.2s ease;
         }
     }
 
-    &__empty {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        padding-top: 28px;
-        padding-bottom: 40px;
-        flex-grow: 1;
-        visibility: hidden;
-        opacity: 0;
-        transition: visibility 0.2s ease, opacity 0.2s ease;
-
-        &--show {
-            visibility: visible;
-            opacity: 1;
-        }
-
-        &-content {
-            text-align: center;
-
-            .past-timetable-viewer__empty-icon {
-                color: rgb(var(--v-theme-text-darken-1));
-            }
-
-            h2 {
-                font-size: 21px;
-                @include tablet-vertical {
-                    font-size: 19px !important;
-                }
-                @include smartphone-horizontal {
-                    font-size: 19px !important;
-                }
-                @include smartphone-horizontal-short {
-                    font-size: 19px !important;
-                }
-                @include smartphone-vertical {
-                    font-size: 19px !important;
-                    text-align: center;
-                }
-            }
-
-            .past-timetable-viewer__empty-submessage {
-                margin-top: 8px;
-                color: rgb(var(--v-theme-text-darken-1));
-                font-size: 15px;
-                @include tablet-vertical {
-                    font-size: 13px !important;
-                    text-align: center;
-                }
-                @include smartphone-horizontal {
-                    font-size: 13px !important;
-                    text-align: center;
-                }
-                @include smartphone-vertical {
-                    font-size: 13px !important;
-                    text-align: center;
-                    margin-top: 7px !important;
-                    line-height: 1.65;
-                }
-            }
-        }
-    }
-
     --channel-width: 150px;
     --channel-height: 34px;
-    --time-width: 70px;
+    --time-width: 50px;
     --time-height-1hour: 300px;
     --time-height-1minute: calc(var(--time-height-1hour) / 60);
 
@@ -380,7 +248,7 @@ const load = async ({ done }) => {
             flex-shrink: 0;
             height: var(--channel-height);
             border-bottom: thin solid rgb(var(--v-theme-background-lighten-2));
-            text-wrap: nowrap;
+            white-space: nowrap;
             overflow: hidden;
             background-color: rgb(var(--v-theme-background-lighten-1));
         }
@@ -427,18 +295,19 @@ const load = async ({ done }) => {
             font-size: 14px;
             text-align: center;
 
+            .date {
+                display: block;
+                font-size: 10px;
+                line-height: 1.2;
+            }
+
             + .time-label {
                 top: calc(var(--channel-height) - 1px);
                 border-top: thin solid rgb(var(--v-theme-background-lighten-2));
             }
 
-            @include smartphone-horizontal {
-                font-size: 12px;
-            }
-
             @include smartphone-vertical {
                 padding: 2px;
-                font-size: 10px;
             }
         }
     }
@@ -450,7 +319,6 @@ const load = async ({ done }) => {
         grid-row: 3;
         grid-column: 2;
         position: relative;
-        background-color: rgb(var(--v-theme-background-lighten-1));
 
         .program {
             overflow: hidden;

@@ -2,42 +2,58 @@
     <div class="route-container">
         <HeaderBar />
         <main>
-            <Navigation />
-            <div class="past-timetable-container-wrapper">
-                <div class="past-timetable-container">
-                    <Breadcrumbs :crumbs="[
-                        { name: 'ホーム', path: '/' },
-                        { name: '過去番組表', path: '/past-timetable/', disabled: true },
-                    ]" />
-                    <PastTimeTableViewer
-                        title="過去番組表"
-                        :programs="programs"
-                        :total="total_programs"
-                        :page="current_page"
-                        :isLoading="is_loading"
-                        :showBackButton="true"
-                        :showEmptyMessage="!is_loading"
-                        :updatePage="updatePage" />
-                </div>
+            <Navigation :icon-only="isNavigationIconOnly" />
+            <div class="past-timetable-container">
+                <SPHeaderBar />
+                <PastTimeTableGrid
+                    :programs="programs"
+                    :total="total_programs"
+                    :page="current_page"
+                    :isLoading="is_loading"
+                    :showBackButton="true"
+                    :showEmptyMessage="!is_loading"
+                    :updatePage="updatePage" />
             </div>
         </main>
     </div>
 </template>
 <script lang="ts" setup>
 
-import { onMounted, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 
-import Breadcrumbs from '@/components/Breadcrumbs.vue';
 import HeaderBar from '@/components/HeaderBar.vue';
 import Navigation from '@/components/Navigation.vue';
-import PastTimeTableViewer from '@/components/Videos/PastTimeTableViewer.vue';
+import SPHeaderBar from '@/components/SPHeaderBar.vue';
+import PastTimeTableGrid from '@/components/Videos/PastTimeTableGrid.vue';
 import { IRecordedProgram } from '@/services/Videos';
 import Videos from '@/services/Videos';
+import Utils from '@/utils';
 
-// ルーター
-const route = useRoute();
-const router = useRouter();
+// ウィンドウリサイズ時にリアクティブに再計算をトリガーするためのカウンター
+// window.innerWidth や window.matchMedia() の結果は Vue のリアクティブシステムでは追跡されないため、
+// リサイズイベント発火時にこのカウンターをインクリメントし、computed がこの値を参照することで再計算をトリガーする
+const windowResizeCounter = ref(0);
+
+// リサイズイベントハンドラー (デバウンス処理付き)
+let resizeDebounceTimerId: number | null = null;
+const RESIZE_DEBOUNCE_MS = 100;
+function onWindowResize() {
+    // デバウンス処理: 連続したリサイズイベントを間引く
+    if (resizeDebounceTimerId !== null) {
+        clearTimeout(resizeDebounceTimerId);
+    }
+    resizeDebounceTimerId = window.setTimeout(() => {
+        windowResizeCounter.value++;
+        resizeDebounceTimerId = null;
+    }, RESIZE_DEBOUNCE_MS);
+}
+
+// Navigation の icon-only 判定 (リサイズ対応)
+const isNavigationIconOnly = computed(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const _trigger = windowResizeCounter.value;
+    return !Utils.isSmartphoneVertical();
+});
 
 // 録画番組のリスト
 const programs = ref<IRecordedProgram[]>([]);
@@ -69,43 +85,54 @@ const updatePage = async (page: number) => {
     await fetchPrograms();
 };
 
-// 開始時に実行
+// ライフサイクル
 onMounted(async () => {
+    // ウィンドウリサイズイベントリスナーを登録
+    // 画面回転やウィンドウサイズ変更時に、レイアウト判定の再計算をトリガーする
+    window.addEventListener('resize', onWindowResize);
+
     // 録画番組を取得
     await fetchPrograms();
+});
+
+onUnmounted(() => {
+    // ウィンドウリサイズイベントリスナーを解除
+    window.removeEventListener('resize', onWindowResize);
+    // デバウンスタイマーをクリア
+    if (resizeDebounceTimerId !== null) {
+        clearTimeout(resizeDebounceTimerId);
+        resizeDebounceTimerId = null;
+    }
 });
 
 </script>
 <style lang="scss" scoped>
 
-.past-timetable-container-wrapper {
-    display: flex;
-    flex-direction: column;
-    width: calc(100% - var(--navigation-width));
-    @include smartphone-vertical {
-        width: 100%;
-        padding-top: 10px !important;
-    }
-}
-
 .past-timetable-container {
     display: flex;
     flex-direction: column;
-    width: fit-content;
-    max-width: 100%;
-    height: 100%;
-    padding: 20px;
-    margin: 0 auto;
+    flex-grow: 1;
+    position: relative;
     min-width: 0;
+    min-height: 0;  // flex アイテムがオーバーフローしないように
+    // 番組表はビューポート内でスクロールさせるため、高さを明示的に制限する
+    // App.vue の main は min-height: 100% で拡大可能なため、ここで高さを制限しないとスクロールが効かない
+    // ヘッダー (65px) と ナビゲーション幅は Navigation コンポーネント側で調整されている
+    height: calc(100vh - 65px);
+    height: calc(100dvh - 65px);  // iOS Safari 対応
     @include smartphone-horizontal {
-        padding: 16px 20px !important;
-    }
-    @include smartphone-horizontal-short {
-        padding: 16px 16px !important;
+        height: 100vh;
+        height: 100dvh;
     }
     @include smartphone-vertical {
-        padding: 16px 8px !important;
-        padding-top: 8px !important;
+        // スマホ縦画面ではヘッダーなし + ボトムナビゲーションバー (56px) + safe-area
+        height: calc(100vh - 56px - env(safe-area-inset-bottom));
+        height: calc(100dvh - 56px - env(safe-area-inset-bottom));
+    }
+    background: rgb(var(--v-theme-background));
+
+    &--loading {
+        pointer-events: none;
     }
 }
 
