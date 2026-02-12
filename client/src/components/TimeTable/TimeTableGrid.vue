@@ -1229,9 +1229,6 @@ watch(() => timetableStore.display_start_time, (value) => {
     display: flex;
     flex-direction: column;
     position: relative;
-    flex-grow: 1;
-    min-width: 0;
-    min-height: 0;
     overflow: hidden;
     background: rgb(var(--v-theme-background));
 
