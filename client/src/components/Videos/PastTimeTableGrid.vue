@@ -162,7 +162,6 @@ const load = async ({ done }) => {
         display: flex;
         flex-direction: column;
         position: relative;
-        width: 100%;
         height: 100vh;
         height: 100dvh;
 
@@ -210,7 +209,6 @@ const load = async ({ done }) => {
         display: grid;
         grid-template-rows: var(--channel-height) 80px 1fr;
         grid-template-columns: var(--time-width) 1fr;
-        width: 100%;
         height: 100%;
         overflow: auto;
 
