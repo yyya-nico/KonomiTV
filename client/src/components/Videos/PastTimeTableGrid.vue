@@ -155,9 +155,6 @@ const load = async ({ done }) => {
     display: flex;
     flex-direction: column;
     position: relative;
-    flex-grow: 1;
-    min-width: 0;
-    min-height: 0;
     overflow: hidden;
     background: rgb(var(--v-theme-background));
 
@@ -165,7 +162,7 @@ const load = async ({ done }) => {
         display: flex;
         flex-direction: column;
         position: relative;
-        width: fit-content;
+        width: 100%;
         max-width: 100%;
         height: 100vh;
         height: 100dvh;
@@ -214,9 +211,8 @@ const load = async ({ done }) => {
         display: grid;
         grid-template-rows: var(--channel-height) 80px 1fr;
         grid-template-columns: var(--time-width) 1fr;
-        width: fit-content;
+        width: 100%;
         height: 100%;
-        max-width: 100%;
         overflow: auto;
 
         &::-webkit-scrollbar-track {

@@ -92,14 +92,18 @@ html {
 
     // 左側ナビゲーションの幅
     --navigation-width: 240px;
+    --navigation-width-icon-only: 68px;
     @include smartphone-horizontal {
         --navigation-width: 210px;
+        --navigation-width-icon-only: 60px;
     }
     @include smartphone-horizontal-short {
         --navigation-width: 190px;
+        --navigation-width-icon-only: 56px;
     }
     @include smartphone-vertical {
         --navigation-width: 0px;
+        --navigation-width-icon-only: 0px;
     }
 
     // 番組表のジャンルハイライトカラー (REGZA 風)

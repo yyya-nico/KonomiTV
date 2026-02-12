@@ -148,13 +148,7 @@ export default defineComponent({
 
     // アイコンのみモード: 幅を68pxに縮小
     &--icon-only {
-        width: 68px;
-        @include smartphone-horizontal {
-            width: 60px;
-        }
-        @include smartphone-horizontal-short {
-            width: 56px;
-        }
+        width: var(--navigation-width-icon-only);
     }
 
     .navigation {
@@ -174,13 +168,7 @@ export default defineComponent({
 
         // アイコンのみモード: 幅を68pxに縮小
         &--icon-only {
-            width: 68px;
-            @include smartphone-horizontal {
-                width: 60px;
-            }
-            @include smartphone-horizontal-short {
-                width: 56px;
-            }
+            width: var(--navigation-width-icon-only);
         }
 
         .navigation-scroll {
