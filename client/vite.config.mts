@@ -130,10 +130,16 @@ export default defineConfig({
                         url: 'wholech/',
                         icons: [
                             {
-                                src: './assets/images/icons/wholech.png',
+                                src: './assets/images/icons/wholech-192px.png',
                                 sizes: '192x192',
                                 type: 'image/png',
-                                purpose: 'maskable'
+                                purpose: 'maskable',
+                            },
+                            {
+                                src: './assets/images/icons/wholech-512px.png',
+                                sizes: '512x512',
+                                type: 'image/png',
+                                purpose: 'maskable',
                             }
                         ]
                     },
