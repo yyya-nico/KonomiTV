@@ -122,6 +122,21 @@ export default defineConfig({
                         type: 'image/png',
                         purpose: 'maskable',
                     }
+                ],
+                shortcuts: [
+                    {
+                        name: 'まるごとch',
+                        description: '地上波放送をまるごと視聴',
+                        url: 'wholech/',
+                        icons: [
+                            {
+                                src: './assets/images/icons/wholech.png',
+                                sizes: '192x192',
+                                type: 'image/png',
+                                purpose: 'maskable'
+                            }
+                        ]
+                    },
                 ]
             },
             // Workbox の設定
