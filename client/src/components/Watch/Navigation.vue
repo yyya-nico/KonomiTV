@@ -29,7 +29,7 @@
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
             :class="{
                 'watch-navigation__link--active': $route.path.startsWith('/reservations'),
-                'watch-navigation__llink--disabled': versionStore.server_version_info?.backend !== 'EDCB',
+                'watch-navigation__link--disabled': versionStore.server_version_info?.backend !== 'EDCB',
             }"
             v-ftooltip.right="'録画予約'" to="/reservations/">
             <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
