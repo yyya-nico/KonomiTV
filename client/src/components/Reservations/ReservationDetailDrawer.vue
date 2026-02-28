@@ -68,6 +68,7 @@
             <div v-if="activeTab === 'settings' && reservation" class="reservation-detail-drawer__settings">
                 <ReservationRecordingSettings
                     :reservation="reservation"
+                    :presets="presets"
                     :has-changes="hasChanges"
                     @update-settings="handleUpdateSettings"
                     @changes-detected="hasChanges = $event" />
@@ -187,15 +188,15 @@
 </template>
 <script lang="ts" setup>
 
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 
 import ReservationProgramInfo from '@/components/Reservations/ReservationProgramInfo.vue';
 import ReservationRecordingSettings from '@/components/Reservations/ReservationRecordingSettings.vue';
 import Message from '@/message';
 import { type IChannel } from '@/services/Channels';
 import { type IProgram } from '@/services/Programs';
-import Reservations, { type IReservation, type IRecordSettings } from '@/services/Reservations';
-import useVersionStore from '@/stores/VersionStore';
+import Reservations, { type IReservation, type IRecordSettings, type IRecordSettingsPresets } from '@/services/Reservations';
+import useServerSettingsStore from '@/stores/ServerSettingsStore';
 import { ProgramUtils } from '@/utils';
 
 // Props
@@ -226,9 +227,9 @@ const isVisible = computed({
     set: (value) => emit('update:modelValue', value),
 });
 
-// サーバー情報（バックエンド種別の判定用）
-const versionStore = useVersionStore();
-const serverVersionInfo = computed(() => versionStore.server_version_info);
+// サーバー設定（バックエンド種別の判定用）
+const serverSettingsStore = useServerSettingsStore();
+const serverSettings = computed(() => serverSettingsStore.server_settings);
 
 // アクティブなタブ
 const activeTab = ref<'info' | 'settings'>('info');
@@ -251,6 +252,9 @@ const showDeleteDialog = ref(false);
 // 閉じる確認ダイアログの表示状態
 const showCloseConfirmDialog = ref(false);
 
+// 録画設定プリセット一覧 (EDCB バックエンド時のみ取得される)
+const presets = ref<IRecordSettingsPresets | null>(null);
+
 // 予約があるかどうか (null でなければ予約がある)
 // ただし id === -1 の場合は mock の予約なので、実際には予約がない状態
 const hasReservation = computed(() => props.reservation !== null);
@@ -266,7 +270,9 @@ const hasRealReservation = computed(() => hasReservation.value && !isMockReserva
 const displayProgram = computed(() => props.reservation?.program ?? props.program ?? null);
 
 // EDCB バックエンドかどうか
-const isEDCBBackend = computed(() => serverVersionInfo.value?.backend === 'EDCB');
+// サーバー設定がまだ取得されていない場合は EDCB と判定しない
+// (デフォルト値が 'EDCB' のため、未取得状態で誤って true を返すと Mirakurun バックエンドでも予約操作が有効化されてしまう)
+const isEDCBBackend = computed(() => serverSettingsStore.is_loaded === true && serverSettings.value.general.backend === 'EDCB');
 
 // 録画設定タブを表示するかどうか
 // - 実際の予約がある場合: 表示 (既存予約の設定編集)
@@ -298,6 +304,15 @@ const isPartialRecording = computed(() => recordingAvailability.value === 'Parti
 
 // チューナー不足（録画不可）
 const isUnavailableRecording = computed(() => recordingAvailability.value === 'Unavailable');
+
+// サーバー設定を取得し、EDCB バックエンドの場合は録画設定プリセットも取得する
+onMounted(async () => {
+    await serverSettingsStore.fetchServerSettingsOnce();
+    // EDCB バックエンドの場合のみプリセットを取得
+    if (isEDCBBackend.value) {
+        presets.value = await Reservations.fetchRecordingPresets();
+    }
+});
 
 // ドロワーが開かれた時の処理
 watch(isVisible, (newValue) => {
