@@ -7,15 +7,15 @@ import json
 import re
 from datetime import datetime
 from typing import Any, ClassVar, Literal, NotRequired, cast
-from zoneinfo import ZoneInfo
 
 import httpx
 from bs4 import BeautifulSoup
 from typing_extensions import TypedDict
 
 from app import logging, schemas
-from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH
+from app.constants import API_REQUEST_HEADERS, HTTPX_CLIENT, JIKKYO_CHANNELS_PATH, JST
 from app.models.User import User
+from app.utils import ParseDatetimeStringToJST
 
 
 class JikkyoChannelStatus(TypedDict):
@@ -47,7 +47,7 @@ class JikkyoClient:
         'jk10': None,
         'jk11': None,
         'jk12': None,
-        'jk13': 'ch2649860',
+        'jk13': None,
         'jk14': None,
         'jk101': 'ch2647992',
         'jk103': None,
@@ -101,6 +101,9 @@ class JikkyoClient:
         'nobleviolet': '#6633CC',
         'black2': '#666666',
     }
+
+    # ニコ生の特殊コマンド付きコメントのフィルタ正規表現
+    SPECIAL_COMMAND_COMMENT_PATTERN: ClassVar[re.Pattern[str]] = re.compile(r'^/[a-z][a-z0-9_-]*(?:\s|$)')
 
     # 実況チャンネルのステータスをキャッシュするための辞書
     __jikkyo_channels_statuses: ClassVar[dict[str, JikkyoChannelStatus]] = {}
@@ -231,12 +234,16 @@ class JikkyoClient:
             return
 
         # 現在時刻に対応するスレッドから実況チャンネルのステータスを取得する
-        current_time = datetime.now(ZoneInfo('Asia/Tokyo'))
+        current_time = datetime.now(JST)
         for channel in channels_data:
             jikkyo_id = channel['id']
             if jikkyo_id in cls.JIKKYO_CHANNEL_ID_MAP:
                 for thread in channel['threads']:
-                    if datetime.fromisoformat(thread['start_at']) <= current_time <= datetime.fromisoformat(thread['end_at']):
+                    # NX-Jikkyo から取得した時刻文字列を、サーバー内部の時刻基準と一致させるため JST aware datetime に正規化する
+                    thread_start_time = ParseDatetimeStringToJST(thread['start_at'])
+                    thread_end_time = ParseDatetimeStringToJST(thread['end_at'])
+
+                    if thread_start_time <= current_time <= thread_end_time:
                         cls.__jikkyo_channels_statuses[jikkyo_id] = {
                             'force': thread['jikkyo_force'],
                             'viewers': thread['viewers'],
@@ -502,7 +509,7 @@ class JikkyoClient:
                 continue
 
             # 運営コメントは今のところ全て弾く
-            if re.match(r'\/[a-z]+ ', comment):
+            if self.isSpecialCommandComment(comment, raw_jikkyo_comment['chat'].get('premium')):
                 continue
 
             # コメントコマンドをパース
@@ -582,6 +589,30 @@ class JikkyoClient:
 
         sizes: dict[str, Literal['big', 'medium', 'small']] = {'big': 'big', 'medium': 'medium', 'small': 'small'}
         return sizes.get(size)
+
+
+    @staticmethod
+    def isSpecialCommandComment(comment: str, premium: str | None = None) -> bool:
+        """
+        コメントがニコ生の運営コマンド付きコメントかどうかを判定する
+
+        Args:
+            comment (str): コメント本文
+            premium (str | None, optional): コメントの premium フラグ
+
+        Returns:
+            bool: ニコ生の運営コマンド付きコメントなら True
+        """
+
+        if JikkyoClient.SPECIAL_COMMAND_COMMENT_PATTERN.match(comment) is None:
+            return False
+
+        # premium フラグが付与されている場合は、運営コメント (premium=3) のみを特殊コマンドとして扱う
+        if premium is not None:
+            return str(premium) == '3'
+
+        # premium フラグが欠落している場合、運営コメントかどうかを判定できないため特殊コマンドとして扱わない
+        return False
 
 
     @staticmethod
