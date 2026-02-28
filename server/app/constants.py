@@ -6,6 +6,7 @@ import secrets
 import sys
 from pathlib import Path
 from typing import Any, Literal
+from zoneinfo import ZoneInfo
 
 import httpx
 from cryptography.fernet import Fernet
@@ -15,6 +16,10 @@ from pydantic import BaseModel, PositiveInt
 
 # バージョン
 VERSION = '0.13.0'
+
+# 日本標準時 (JST, UTC+9) の ZoneInfo
+## KonomiTV は日本向けのアプリケーションのため、日時は JST で統一して扱う
+JST = ZoneInfo('Asia/Tokyo')
 
 # ベースディレクトリ
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -42,6 +47,12 @@ JIKKYO_CHANNELS_PATH = STATIC_DIR / 'jikkyo_channels.json'
 
 # ログディレクトリ
 LOGS_DIR = BASE_DIR / 'logs'
+## サーバーログのアーカイブ（日付別ログ）を格納するサブディレクトリ
+## ログディレクトリ直下にアーカイブが大量に並ぶとノイズになるため、サブディレクトリに分離する
+LOGS_ARCHIVES_DIR = LOGS_DIR / 'archives'
+## サーバーログのアーカイブの保持期限 (日数)
+## 30 日を超えたアーカイブログを自動削除する
+SERVER_LOG_ARCHIVE_RETENTION_DAYS: int | None = 30
 ## KonomiTV のサーバーログのパス
 KONOMITV_SERVER_LOG_PATH = LOGS_DIR / 'KonomiTV-Server.log'
 ## KonomiTV のアクセスログのパス
@@ -138,10 +149,10 @@ LOGGING_CONFIG: dict[str, Any] = {
         },
         'default_file': {
             'formatter': 'default_file',
-            'class': 'logging.FileHandler',
+            'class': 'app.utils.LogRotation.DailyRotatingFileHandler',
             'filename': KONOMITV_SERVER_LOG_PATH,
-            'mode': 'a',
             'encoding': 'utf-8',
+            'retention_days': SERVER_LOG_ARCHIVE_RETENTION_DAYS,
         },
         # サーバーログ (デバッグ) は標準エラー出力と server/logs/KonomiTV-Server.log の両方に出力する
         'debug': {
@@ -151,10 +162,10 @@ LOGGING_CONFIG: dict[str, Any] = {
         },
         'debug_file': {
             'formatter': 'debug_file',
-            'class': 'logging.FileHandler',
+            'class': 'app.utils.LogRotation.DailyRotatingFileHandler',
             'filename': KONOMITV_SERVER_LOG_PATH,
-            'mode': 'a',
             'encoding': 'utf-8',
+            'retention_days': SERVER_LOG_ARCHIVE_RETENTION_DAYS,
         },
         # アクセスログは標準出力と server/logs/KonomiTV-Access.log の両方に出力する
         'access': {

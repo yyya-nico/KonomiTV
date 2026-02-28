@@ -154,7 +154,7 @@ class RecordedVideo(PydanticModel):
     duration: float
     container_format: Literal['MPEG-TS', 'MPEG-4']
     video_codec: Literal['MPEG-2', 'H.264', 'H.265']
-    video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline']
+    video_codec_profile: Literal['High', 'High 10', 'Main', 'Main 10', 'Baseline', 'Constrained Baseline']
     video_scan_type: Literal['Interlaced', 'Progressive']
     video_frame_rate: float
     video_resolution_width: int
@@ -538,6 +538,36 @@ class RecordingFolder(BaseModel):
     recording_file_name_template: str | None = None
     # ワンセグ放送を別ファイルに同時録画する場合の録画フォルダかどうか
     is_oneseg_separate_recording_folder: bool = False
+
+# 録画設定プリセット一覧
+class RecordSettingsPresets(BaseModel):
+    # グローバルデフォルト値
+    global_defaults: RecordSettingsGlobalDefaults
+    # プリセット一覧 (ID=0 のデフォルトプリセットを含む)
+    presets: list[RecordSettingsPreset]
+
+# 録画設定プリセット
+class RecordSettingsPreset(BaseModel):
+    # プリセット ID (0 がデフォルトプリセット)
+    id: int
+    # プリセット名
+    name: str
+    # このプリセットの録画設定
+    record_settings: RecordSettings
+
+# 録画設定のグローバルデフォルト値
+## EpgTimerSrv.ini の [SET] セクションから取得した、各設定の「デフォルト設定を使う」選択時に適用される実際の値
+class RecordSettingsGlobalDefaults(BaseModel):
+    # グローバルデフォルトの録画開始マージン (秒)
+    recording_start_margin: int
+    # グローバルデフォルトの録画終了マージン (秒)
+    recording_end_margin: int
+    # 字幕データ録画のグローバルデフォルト
+    caption_recording_mode: Literal['Enable', 'Disable']
+    # データ放送録画のグローバルデフォルト
+    data_broadcasting_recording_mode: Literal['Enable', 'Disable']
+    # 録画後動作のグローバルデフォルト
+    post_recording_mode: Literal['Nothing', 'Standby', 'StandbyAndReboot', 'Suspend', 'SuspendAndReboot', 'Shutdown']
 
 # ***** データ放送 *****
 
