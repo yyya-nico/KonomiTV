@@ -26,15 +26,19 @@
                         }">
                         <router-link v-ripple class="program" v-for="program in displayPrograms" :key="program.id"
                             :title="program.title"
-                            :class="['program', getClassName(program)]"
+                            :class="['program', getClassName(program), {
+                                'program--recording': program.recorded_video.status === 'Recording',
+                            }]"
                             :style="{
                                 gridColumn: channels.indexOf(program.channel?.name) + 1,
                                 gridRowStart: Math.floor((new Date(program.start_time).getTime() - new Date(timeLabels[0]).getTime()) / (60 * 1000)) + 1,
                                 gridRowEnd: `span ${Math.ceil(program.duration / 60)}`
                             }"
-                            :to="program.recorded_video.status === 'Recording' || !program.recorded_video.has_key_frames ? { path: '' } : `/videos/watch/${program.id}`">
+                            :to="program.recorded_video.status === 'Recorded' && program.recorded_video.has_key_frames ? `/videos/watch/${program.id}` :
+                                program.recorded_video.status === 'Recording' ? `/tv/watch/${program.channel?.display_channel_id}` : { path: '' }">
                             <div class="program-title">
                                 <div class="program-start-time">{{ new Date(program.start_time).getMinutes().toString().padStart(2, '0') }}</div>
+                                <span v-if="program.recorded_video.status === 'Recording'" class="program-status">放送中</span>
                                 {{ program.title }}
                             </div>
                             <div class="program-description">
@@ -318,8 +322,25 @@ const load = async ({ done }) => {
             width: var(--channel-width);
             border: thin solid transparent;
             background-clip: padding-box;
+            background-color: var(--genre-color);
             color: inherit;
             text-decoration: none;
+
+            &:hover {
+                background-color: var(--genre-color-hover);
+            }
+
+            &--recording {
+                background-color: color-mix(in srgb, var(--genre-color) 75%, #fff);
+
+                &:hover {
+                    background-color: color-mix(in srgb, var(--genre-color-hover) 75%, #fff);
+                }
+
+                .program-description {
+                    display: none;
+                }
+            }
 
             &:hover, &:focus {
                 z-index: 0;
@@ -328,51 +349,33 @@ const load = async ({ done }) => {
             }
 
             &.genre_none{
-                background-color: #484040;
-
-                &:hover{
-                    background-color: #574f4f;
-                }
+                --genre-color: #484040;
+                --genre-color-hover: #574f4f;
             }
 
             &.genre_sports{
-                background-color: #5e6167;
-
-                &:hover{
-                    background-color: #6d5c6e;
-                }
+                --genre-color: #5e6167;
+                --genre-color-hover: #6d5c6e;
             }
 
             &.genre_drama{
-                background-color: #43422e;
-
-                &:hover{
-                    background-color: #585745;
-                }
+                --genre-color: #43422e;
+                --genre-color-hover: #585745;
             }
 
             &.genre_music{
-                background-color: #242e1c;
-
-                &:hover{
-                    background-color: #37432d;
-                }
+                --genre-color: #242e1c;
+                --genre-color-hover: #37432d;
             }
 
             &.genre_movie{
-                background-color: #45293b;
-
-                &:hover{
-                    background-color: #6e4459;
-                }
+                --genre-color: #45293b;
+                --genre-color-hover: #6e4459;
             }
 
             &.genre_anime{
-                background-color: #393024;
-
-                &:hover{
-                    background-color: #5b4e37;
-                }
+                --genre-color: #393024;
+                --genre-color-hover: #5b4e37;
             }
 
             .program-title {
@@ -387,6 +390,15 @@ const load = async ({ done }) => {
                 background-color: rgb(var(--v-theme-background-lighten-1));
                 float: left;
                 text-align: center;
+            }
+
+            .program-status {
+                font-size: 0.7em;
+                margin-left: 2px;
+                border-radius: 4px;
+                padding: 2px 4px;
+                background-color: rgb(var(--v-theme-primary-darken-1));
+                color: rgb(var(--v-theme-primary-contrast));
             }
 
             .program-description {
