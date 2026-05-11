@@ -15,7 +15,7 @@
                     </div>
                     <div id="times">
                         <div v-for="(time, i) in timeLabels" :key="i" class="time-label">
-                            <span v-if="time.getHours() === 0 || i === 0" class="date"
+                            <span v-if="i === 0 || time.toDateString() !== timeLabels[i-1].toDateString()" class="date"
                                 >{{ time.toLocaleDateString([], { month: 'numeric', day: 'numeric', weekday: 'short' }) }}</span
                             >{{time.toLocaleTimeString([], { hour: 'numeric' }) }}
                         </div>
@@ -31,8 +31,8 @@
                             }]"
                             :style="{
                                 gridColumn: channels.indexOf(program.channel?.name) + 1,
-                                gridRowStart: Math.floor((new Date(program.start_time).getTime() - new Date(timeLabels[0]).getTime()) / (60 * 1000)) + 1,
-                                gridRowEnd: `span ${Math.ceil(program.duration / 60)}`
+                                gridRowStart: getProgramGridRowStart(program),
+                                gridRowEnd: getProgramGridRowEnd(program)
                             }"
                             :to="program.recorded_video.status === 'Recorded' && program.recorded_video.has_key_frames ? `/videos/watch/${program.id}` :
                                 program.recorded_video.status === 'Recording' ? `/tv/watch/${program.channel?.display_channel_id}` : { path: '' }">
@@ -119,17 +119,51 @@ const channels = computed(() => {
         .map(p => p.channel?.name))];
 });
 
-// 時間ラベルを生成
+// 時間ラベルを生成（番組が存在する時間帯のみ）
 const timeLabels = computed(() => {
     if (displayPrograms.value.length === 0) return [];
-    const startTime = displayPrograms.value.map(program => new Date(program.start_time)).reduce((a, b) => a < b ? a : b);
-    const endTime = displayPrograms.value.map(program => new Date(program.end_time)).reduce((a, b) => a > b ? a : b);
-    const labels: Date[] = [];
-    for (let time = new Date(startTime.setMinutes(0, 0, 0)); time <= endTime; time.setHours(time.getHours() + 1)) {
-        labels.push(new Date(time));
-    }
+
+    // 番組が存在する時間帯をセットで管理
+    const uniqueHours = new Set<number>();
+    displayPrograms.value.forEach(program => {
+        const startTime = new Date(program.start_time);
+        const endTime = new Date(program.end_time);
+
+        // 開始時刻から終了時刻までの各時間を追加（endTimeも含める）
+        for (let time = new Date(startTime.getTime()); time <= endTime; time.setHours(time.getHours() + 1)) {
+            const hourStart = new Date(time);
+            hourStart.setMinutes(0, 0, 0);
+            uniqueHours.add(hourStart.getTime());
+        }
+    });
+
+    // ソートしてDate配列に変換
+    const labels = Array.from(uniqueHours)
+        .sort((a, b) => a - b)
+        .map(timestamp => new Date(timestamp));
+
     return labels;
 });
+
+// プログラムのグリッド行開始位置を計算（分単位）
+const getProgramGridRowStart = (program: IRecordedProgram): number => {
+    const startTime = new Date(program.start_time);
+    const startHour = new Date(startTime);
+    startHour.setMinutes(0, 0, 0);
+
+    // timeLabels内でこの時刻に該当するインデックスを検索
+    const hourIndex = timeLabels.value.findIndex(label => label.getTime() === startHour.getTime());
+    if (hourIndex < 0) return 1;
+
+    // 時間ラベルのインデックスを60倍にして、さらに開始時刻の分を加える
+    const minutes = startTime.getMinutes();
+    return hourIndex * 60 + minutes + 1;
+};
+
+// プログラムのグリッド行スパンを計算（分単位）
+const getProgramGridRowEnd = (program: IRecordedProgram): string => {
+    return `span ${Math.ceil(program.duration / 60)}`;
+};
 
 // プログラムのクラス名を取得
 const getClassName = (program: IRecordedProgram) => {
