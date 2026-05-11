@@ -128,12 +128,12 @@ const timeLabels = computed(() => {
     displayPrograms.value.forEach(program => {
         const startTime = new Date(program.start_time);
         const endTime = new Date(program.end_time);
+        let time = new Date(startTime);
+        time.setMinutes(0, 0, 0); // 時間の切り捨て
 
-        // 開始時刻から終了時刻までの各時間を追加（endTimeも含める）
-        for (let time = new Date(startTime.getTime()); time <= endTime; time.setHours(time.getHours() + 1)) {
-            const hourStart = new Date(time);
-            hourStart.setMinutes(0, 0, 0);
-            uniqueHours.add(hourStart.getTime());
+        // 開始時刻から終了時刻までの各時間を追加
+        for (; time < endTime; time.setHours(time.getHours() + 1)) {
+            uniqueHours.add(time.getTime());
         }
     });
 
