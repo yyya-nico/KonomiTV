@@ -197,21 +197,18 @@ class UIController {
                     nextIndex = (index - cols + totalFrames) % totalFrames;
                     break;
                 case 'ArrowRight':
-                    nextIndex = (index + 1) % totalFrames;
+                    nextIndex = (index + 1) % chFrames.length;
                     break;
                 case 'ArrowDown':
                     nextIndex = (index + cols) % totalFrames;
                     break;
                 case 'ArrowLeft':
-                    nextIndex = (index - 1 + totalFrames) % totalFrames;
+                    nextIndex = (index - 1 + chFrames.length) % chFrames.length;
                     break;
             }
-            if (nextIndex >= chFrames.length) {
-                if (key === 'ArrowUp' || key === 'ArrowDown') {
-                    nextIndex = nextIndex % cols;
-                } else {
-                    nextIndex = key === 'ArrowRight' ? 0 : chFrames.length - 1;
-                }
+            while (nextIndex > chFrames.length - 1) {
+                const to = key === 'ArrowUp' ? -1 : 1;
+                nextIndex = (nextIndex + to * cols + totalFrames) % totalFrames;
             }
         }
         chFrames[index].tabIndex = -1;
