@@ -34,7 +34,7 @@
                                 gridRowStart: getProgramGridRowStart(program),
                                 gridRowEnd: getProgramGridRowEnd(program)
                             }"
-                            :to="program.recorded_video.status === 'Recorded' && program.recorded_video.has_key_frames ? `/videos/watch/${program.id}` :
+                            :to="program.recorded_video.status === 'Recorded' ? `/videos/watch/${program.id}` :
                                 program.recorded_video.status === 'Recording' ? `/tv/watch/${program.channel?.display_channel_id}` : { path: '' }">
                             <div class="program-title">
                                 <div class="program-start-time">{{ new Date(program.start_time).getMinutes().toString().padStart(2, '0') }}</div>
