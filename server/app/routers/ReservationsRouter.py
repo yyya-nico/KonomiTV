@@ -1003,12 +1003,6 @@ async def ReservationsAPI(
         # 高速化のため、録画予約に必要な番組情報を一括取得しておく
         programs = await GetRequiredProgramsForReservations(reserve_data_list)
 
-        # 録画中判定が必要な予約のみ EDCB へ問い合わせる
-        # 必要最小限の予約に絞ることで、視聴中の定期更新時の EDCB 負荷を抑える
-        is_recording_in_progress_by_reserve_id: dict[int, bool] = {}
-        for reserve_data in reserve_data_list:
-            is_recording_in_progress_by_reserve_id[reserve_data['reserve_id']] = await GetIsRecordingInProgress(reserve_data, edcb)
-
         # EDCB の ReserveData オブジェクトを schemas.Reservation オブジェクトに変換
         reserves = await asyncio.gather(*(
             DecodeEDCBReserveData(
