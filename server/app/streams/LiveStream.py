@@ -14,6 +14,7 @@ from app.config import Config
 from app.constants import QUALITY_TYPES
 from app.schemas import LiveStreamStatus
 from app.streams.LiveEncodingTask import LiveEncodingTask
+from app.streams.LiveIMJPEGTranscoder import LiveIMJPEGTranscoder
 from app.streams.LivePSIDataArchiver import LivePSIDataArchiver
 from app.streams.StreamEncodingOptions import StreamEncodingOptions
 from app.utils.edcb.EDCBTuner import EDCBTuner
@@ -22,7 +23,7 @@ from app.utils.edcb.EDCBTuner import EDCBTuner
 class LiveStreamClient:
     """ ライブストリームのクライアントを表すクラス """
 
-    def __init__(self, live_stream: LiveStream, client_type: Literal['mpegts']) -> None:
+    def __init__(self, live_stream: LiveStream, client_type: Literal['mpegts', 'i-mjpeg']) -> None:
         """
         ライブストリーミングクライアントのインスタンスを初期化する
         LiveStreamClient は LiveStream クラス外から初期化してはいけない
@@ -30,7 +31,7 @@ class LiveStreamClient:
 
         Args:
             live_stream (LiveStream): クライアントが紐づくライブストリームのインスタンス
-            client_type (Literal['mpegts']): クライアントの種別 (mpegts, ll-hls クライアントは廃止された)
+            client_type (Literal['mpegts', 'i-mjpeg']): クライアントの種別
         """
 
         # このクライアントが紐づくライブストリームのインスタンス
@@ -38,10 +39,11 @@ class LiveStreamClient:
 
         # クライアント ID
         ## ミリ秒単位のタイムスタンプをもとに、Hashids による10文字のユニーク ID が生成される
-        self.client_id: str = 'MPEGTS-' + Hashids(min_length=10).encode(int(time.time() * 1000))
+        client_id_prefix = 'MPEGTS-' if client_type == 'mpegts' else 'I-MJPEG-'
+        self.client_id: str = client_id_prefix + Hashids(min_length=10).encode(int(time.time() * 1000))
 
-        # クライアントの種別 (mpegts)
-        self.client_type: Literal['mpegts'] = client_type
+        # クライアントの種別 (mpegts / i-mjpeg)
+        self.client_type: Literal['mpegts', 'i-mjpeg'] = client_type
 
         # ストリームデータが入る Queue
         self._queue: asyncio.Queue[bytes | None] = asyncio.Queue()
@@ -69,10 +71,6 @@ class LiveStreamClient:
             bytes | None: ストリームデータ (エンコードタスクが終了した場合は None が返る)
         """
 
-        # mpegts クライアント以外では実行しない
-        if self.client_type != 'mpegts':
-            return None
-
         # ストリームデータの最終読み取り時刻を更新
         self._stream_data_read_at = time.time()
 
@@ -91,10 +89,6 @@ class LiveStreamClient:
         Args:
             stream_data (bytes): 書き込むストリームデータ (エンコードタスクが終了した場合は None を渡す)
         """
-
-        # mpegts クライアント以外では実行しない
-        if self.client_type != 'mpegts':
-            return None
 
         # Queue にストリームデータを書き込む
         self._queue.put_nowait(stream_data)
@@ -167,6 +161,14 @@ class LiveStream:
             # イベントループ上の Task は弱参照で管理されるため、自然終了するまでここで強参照を保持する
             instance._detached_live_encoding_task_refs = set()
 
+            # エンコード済み MPEG-TS から I フレーム JPEG を生成する変換器
+            ## i-mjpeg クライアントが1つ以上接続している間だけ run() を実行し、全クライアントで1プロセスを共有する
+            instance._i_mjpeg_transcoder = None
+
+            # 実行中の I-MJPEG 変換タスクへの参照
+            ## disconnect() で最後の i-mjpeg クライアントが切断された際にキャンセルし、FFmpeg を確実に回収する
+            instance._i_mjpeg_transcoder_task_ref = None
+
             # PSI/SI データアーカイバーのインスタンス
             ## LiveStreamsRouter からアクセスする必要があるためここに設置している
             instance.psi_data_archiver = None
@@ -215,6 +217,8 @@ class LiveStream:
         self._stream_data_written_at: float
         self._live_encoding_task_ref: asyncio.Task[None] | None
         self._detached_live_encoding_task_refs: set[asyncio.Task[None]]
+        self._i_mjpeg_transcoder: LiveIMJPEGTranscoder | None
+        self._i_mjpeg_transcoder_task_ref: asyncio.Task[None] | None
         self.psi_data_archiver: LivePSIDataArchiver | None
         self.tuner: EDCBTuner | None
         self._tuner_lock: asyncio.Lock
@@ -334,13 +338,13 @@ class LiveStream:
         return viewer_count
 
 
-    async def connect(self, client_type: Literal['mpegts']) -> LiveStreamClient:
+    async def connect(self, client_type: Literal['mpegts', 'i-mjpeg']) -> LiveStreamClient:
         """
         ライブストリームに接続して、新しくライブストリームに登録されたクライアントを返す
         この時点でライブストリームが Offline ならば、新たにエンコードタスクが起動される
 
         Args:
-            client_type (Literal['mpegts']): クライアントの種別 (mpegts, ll-hls クライアントは廃止された)
+            client_type (Literal['mpegts', 'i-mjpeg']): クライアントの種別
 
         Returns:
             LiveStreamClient: ライブストリームクライアントのインスタンス
@@ -503,6 +507,30 @@ class LiveStream:
             self._clients.append(client)
             logging.info(f'{self.log_prefix} Client Connected. Client ID: {client.client_id}')
 
+            # 最初の I-MJPEG クライアントが接続した時点で、エンコード後映像を変換する共有 FFmpeg を起動する
+            if (client_type == 'i-mjpeg' and
+                (self._i_mjpeg_transcoder_task_ref is None or
+                 self._i_mjpeg_transcoder_task_ref.done() is True or
+                 self._i_mjpeg_transcoder_task_ref.cancelling() > 0)):
+                self._i_mjpeg_transcoder = LiveIMJPEGTranscoder(self)
+                transcoder_task = asyncio.create_task(self._i_mjpeg_transcoder.run())
+                self._i_mjpeg_transcoder_task_ref = transcoder_task
+
+                # 自然終了した古いタスクのコールバックが、新しく起動したタスクの参照を消さないよう同一性を確認する
+                def OnIMJPEGTranscoderTaskDone(done_task: asyncio.Task[None]) -> None:
+                    # 起動失敗などの例外を回収し、待機中の I-MJPEG クライアントへストリーム終了を通知する
+                    if done_task.cancelled() is False:
+                        exception = done_task.exception()
+                        if exception is not None:
+                            logging.error(f'{self.log_prefix} I-MJPEG transcoder failed:', exc_info=exception)
+                            self.finishIMJPEGStream()
+
+                    if self._i_mjpeg_transcoder_task_ref is done_task:
+                        self._i_mjpeg_transcoder_task_ref = None
+                        self._i_mjpeg_transcoder = None
+
+                transcoder_task.add_done_callback(OnIMJPEGTranscoderTaskDone)
+
         # ***** アイドリングからの復帰 *****
 
         # ライブストリームが Idling 状態な場合、ONAir 状態に戻す（アイドリングから復帰）
@@ -532,6 +560,11 @@ class LiveStream:
             pass
         del client
 
+        # 最後の I-MJPEG クライアントが切断されたら、不要になった変換用 FFmpeg を停止する
+        if (self._i_mjpeg_transcoder_task_ref is not None and
+            all(remaining_client.client_type != 'i-mjpeg' for remaining_client in self._clients)):
+            self._i_mjpeg_transcoder_task_ref.cancel()
+
 
     def disconnectAll(self) -> None:
         """
@@ -540,10 +573,9 @@ class LiveStream:
         """
 
         # すべてのクライアントの接続を切断する
-        for client in self._clients:
-            # mpegts クライアントのみ、Queue に None を追加して接続切断を通知する
-            if client.client_type == 'mpegts':
-                client.writeStreamData(None)
+        for client in self._clients.copy():
+            # Queue に None を追加して接続切断を通知する
+            client.writeStreamData(None)
             self.disconnect(client)
             del client
 
@@ -655,7 +687,7 @@ class LiveStream:
         now = time.time()
 
         # 接続している全てのクライアントの Queue にストリームデータを書き込む
-        for client in self._clients:
+        for client in self._clients.copy():
 
             # タイムアウト秒数は 10 秒
             timeout = 10
@@ -663,15 +695,50 @@ class LiveStream:
             # 最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
             ## 主にネットワークが切断されたなどの理由で発生する
             if now - client.stream_data_read_at > timeout:
-                self._clients.remove(client)
-                logging.info(f'{self.log_prefix} Client Disconnected (Timeout). Client ID: {client.client_id}')
-                del client
+                logging.info(f'{self.log_prefix} Client Timed Out. Client ID: {client.client_id}')
+                self.disconnect(client)
                 continue
 
             # ストリームデータを書き込む (クライアント種別が mpegts の場合のみ)
             if client.client_type == 'mpegts':
                 client.writeStreamData(stream_data)
 
+        # I-MJPEG クライアントが存在するときだけ、同じエンコード済み MPEG-TS を共有変換器にも渡す
+        if self._i_mjpeg_transcoder is not None:
+            self._i_mjpeg_transcoder.writeMPEGTSData(stream_data)
+
         # ストリームデータが空でなければ、最終書き込み時刻を更新
         if stream_data != b'':
             self._stream_data_written_at = now
+
+
+    def writeIMJPEGFrame(self, jpeg_data: bytes) -> None:
+        """
+        I フレームから生成した JPEG をすべての I-MJPEG クライアントへ書き込む。
+
+        Args:
+            jpeg_data (bytes): 完全な1枚分の JPEG データ
+
+        Returns:
+            None
+        """
+
+        for client in self._clients.copy():
+            if client.client_type == 'i-mjpeg':
+                client.writeStreamData(jpeg_data)
+
+
+    def finishIMJPEGStream(self) -> None:
+        """
+        I-MJPEG 変換終了を接続中の I-MJPEG クライアントへ通知する。
+
+        Args:
+            なし
+
+        Returns:
+            None
+        """
+
+        for client in self._clients.copy():
+            if client.client_type == 'i-mjpeg':
+                client.writeStreamData(None)
