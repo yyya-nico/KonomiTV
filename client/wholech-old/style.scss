@@ -44,6 +44,13 @@ body {
     }
 
     &.hide-ui {
+        .chframe {
+            .control {
+                visibility: hidden;
+                opacity: 0;
+            }
+        }
+
         #control {
             visibility: hidden;
             opacity: 0;
@@ -90,24 +97,69 @@ body {
         grid-template-rows: repeat(4, 1fr);
         grid-template-columns: repeat(4, 1fr);
 
-        #main-video {
-            grid-area: main;
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
         .chframe {
             @for $i from 1 through 11 {
-                &:nth-child(#{$i + 1}) {
+                &:nth-child(#{$i}) {
                     grid-area: nth((a, b, c, d, e, f, g, h, i, j, k), $i);
                 }
             }
-        }
-    }
+            &.listening {
+                grid-area: main;
 
-    #main-video {
-        display: none;
+                .broadcast-channel-box {
+                    gap: 4px;
+                    top: 7px;
+                    left: 6px;
+                    z-index: 1;
+                    background-color: transparent;
+
+                    .broadcast-logo {
+                        width: 35px;
+                        height: 20px;
+                    }
+                }
+
+                .broadcast-title {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    top: 0;
+                    bottom: auto;
+                    height: auto;
+                    padding: 8px 8px 8px 74px;
+
+                    .broadcast-time {
+                        flex-shrink: 0;
+                        position: static;
+                    }
+                }
+
+                @include desktop {
+                    .broadcast-wrap {
+                        font-size: x-large;
+                    }
+
+                    .broadcast-channel-box {
+                        top: 3px;
+                        font-size: x-large;
+
+                        .broadcast-logo {
+                            width: 56px;
+                            height: 32px;
+                        }
+                    }
+
+                    .broadcast-title {
+                        gap: 4px;
+                        padding-left: 110px;
+
+                        .broadcast-time {
+                            font-size: large;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     .chframe {
@@ -119,9 +171,15 @@ body {
             .broadcast-title {
                 height: calc(1.2em * 3);
             }
+
+            .control {
+                bottom: calc(1.2em * 3);
+                visibility: visible;
+                opacity: 1;
+            }
         }
 
-        img {
+        video {
             display: block;
             width: 100%;
             height: 100%;
@@ -177,6 +235,23 @@ body {
                 top: 3em;
                 right: 0;
                 font-size: small;
+            }
+        }
+
+        .control {
+            position: absolute;
+            right: 0;
+            bottom: 1.2em;
+            visibility: hidden;
+            opacity: 0;
+            transition:
+                bottom 0.3s,
+                opacity 0.3s,
+                visibility 0.3s;
+            user-select: none;
+
+            > * {
+                display: inline-block;
             }
         }
     }
