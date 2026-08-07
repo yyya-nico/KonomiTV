@@ -52,11 +52,21 @@ class LiveStreamClient:
         ## 最終読み取り時刻から 10 秒経過したクライアントは LiveStream.writeStreamData() でタイムアウトと判断され、削除される
         self._stream_data_read_at: float = time.time()
 
+        # Queue に次のストリームデータが届くのを能動的に待っているかどうか
+        ## I-MJPEG は初回 JPEG の生成まで10秒以上空く場合があるため、待機中のクライアントをタイムアウト対象から除外するために参照する
+        self._is_waiting_for_stream_data: bool = False
+
 
     @property
     def stream_data_read_at(self) -> float:
         """ ストリームデータの最終読み取り時刻のタイミング (読み取り専用) """
         return self._stream_data_read_at
+
+
+    @property
+    def is_waiting_for_stream_data(self) -> bool:
+        """Queue に次のストリームデータが届くのを待っているかどうか (読み取り専用)"""
+        return self._is_waiting_for_stream_data
 
 
     async def readStreamData(self) -> bytes | None:
@@ -75,10 +85,16 @@ class LiveStreamClient:
         self._stream_data_read_at = time.time()
 
         # Queue から読み取ったストリームデータを返す
+        ## Queue の待機中はクライアント側が正常に次のデータを要求している状態なので、タイムアウト判定から除外する
+        self._is_waiting_for_stream_data = True
         try:
-            return await self._queue.get()
+            stream_data = await self._queue.get()
+            self._stream_data_read_at = time.time()
+            return stream_data
         except TypeError:
             return None
+        finally:
+            self._is_waiting_for_stream_data = False
 
 
     def writeStreamData(self, stream_data: bytes | None) -> None:
@@ -694,7 +710,8 @@ class LiveStream:
 
             # 最終読み取り時刻を指定秒数過ぎたクライアントはタイムアウトと判断し、クライアントを削除する
             ## 主にネットワークが切断されたなどの理由で発生する
-            if now - client.stream_data_read_at > timeout:
+            if (client.is_waiting_for_stream_data is False and
+                now - client.stream_data_read_at > timeout):
                 logging.info(f'{self.log_prefix} Client Timed Out. Client ID: {client.client_id}')
                 self.disconnect(client)
                 continue
