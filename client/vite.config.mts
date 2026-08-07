@@ -26,6 +26,7 @@ export default defineConfig({
             input: {
                 top: resolve(__dirname, 'index.html'),
                 wholech: resolve(__dirname, 'wholech/index.html'),
+                wholechOld: resolve(__dirname, 'wholech-old/index.html'),
             },
             output: {
                 assetFileNames: (assetInfo) => {
@@ -128,6 +129,25 @@ export default defineConfig({
                         name: 'まるごとch',
                         description: '地上波放送をまるごと視聴',
                         url: 'wholech/',
+                        icons: [
+                            {
+                                src: './assets/images/icons/wholech-192px.png',
+                                sizes: '192x192',
+                                type: 'image/png',
+                                purpose: 'maskable',
+                            },
+                            {
+                                src: './assets/images/icons/wholech-512px.png',
+                                sizes: '512x512',
+                                type: 'image/png',
+                                purpose: 'maskable',
+                            }
+                        ]
+                    },
+                    {
+                        name: 'まるごとch(旧)',
+                        description: '地上波放送をまるごと視聴',
+                        url: 'wholech-old/',
                         icons: [
                             {
                                 src: './assets/images/icons/wholech-192px.png',
