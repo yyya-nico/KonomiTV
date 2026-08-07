@@ -19,7 +19,6 @@ class UIController {
     wrap: HTMLElement;
     chList: HTMLElement;
     control: HTMLElement;
-    viewMainBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
     hideTimer: ReturnType<typeof setTimeout> | null;
@@ -27,11 +26,10 @@ class UIController {
     onTuning: (ch: number | 'up' | 'down') => void;
     onViewMainClick: () => void;
 
-    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement, viewMainBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
+    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
         this.wrap = wrap;
         this.chList = chList;
         this.control = control;
-        this.viewMainBtn = viewMainBtn;
         this.keepDisplaySw = keepDisplaySw;
         this.fullscreenBtn = fullscreenBtn;
         this.hideTimer = null;
@@ -53,8 +51,6 @@ class UIController {
         this.keepDisplaySw.addEventListener('change', showAndHide);
 
         window.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeydown(e, showAndHide));
-
-        this.viewMainBtn.addEventListener('click', () => this.onViewMainClick());
 
         window.addEventListener('scroll', () => this.handleScroll());
     }
@@ -100,11 +96,6 @@ class UIController {
             case 'PageDown':
                 e.preventDefault();
                 this.onTuning('down');
-                break;
-            case 'M':
-            case 'm':
-                this.viewMainBtn.click();
-                this.viewMainBtn.focus();
                 break;
         }
         const isNumKey = !isNaN(parseInt(keyName, 10));
@@ -305,6 +296,7 @@ class Tuner {
             this.player.unload();
             this.player.detachMediaElement();
             this.player.destroy();
+            this.player = null;
         }
         if (isSingleListen) {
             newStates[listenIndex] = true;
@@ -323,17 +315,6 @@ class Tuner {
             frame.elem.classList.toggle('listening', frame.isListening);
         });
         this.chList.classList.toggle('choiced', isSingleListen);
-    }
-
-    toggleVisible(): void {
-        const beforeChoiced = this.chList.classList.contains('choiced');
-        if (beforeChoiced && this.player) {
-            this.player.unload();
-            this.player.detachMediaElement();
-            this.player.destroy();
-            this.player = null;
-        }
-        this.chList.classList.toggle('choiced');
     }
 }
 
@@ -483,7 +464,6 @@ class App {
     wrap: HTMLElement;
     chList: HTMLElement;
     control: HTMLElement;
-    viewMainBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
     uiController: UIController;
@@ -498,11 +478,10 @@ class App {
         this.wrap = document.getElementById('wrap')!;
         this.chList = document.getElementById('chlist')!;
         this.control = document.getElementById('control')!;
-        this.viewMainBtn = document.getElementById('view-main') as HTMLButtonElement;
         this.keepDisplaySw = document.getElementById('keepshowsw') as HTMLInputElement;
         this.fullscreenBtn = document.getElementById('fsbutton') as HTMLButtonElement;
 
-        this.uiController = new UIController(this.wrap, this.chList, this.control, this.viewMainBtn, this.keepDisplaySw, this.fullscreenBtn);
+        this.uiController = new UIController(this.wrap, this.chList, this.control, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
         this.mainVideo = document.getElementById('main-video') as HTMLVideoElement;
         this.chFrames = [];
@@ -514,7 +493,6 @@ class App {
         await this.channelManager.updateChannels();
         this.createChannelFrames();
         this.uiController.setOnTuning((ch) => this.tuner.tune(ch));
-        this.uiController.setOnViewMainClick(() => this.tuner.toggleVisible());
         this.uiController.init();
         this.startPeriodicUpdate();
     }
