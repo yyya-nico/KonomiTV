@@ -305,7 +305,7 @@ class Tuner {
             if (frame.isListening) {
                 frame.loadVideo();
             } else {
-                frame.unloadVideo();
+                frame.video.muted = true;
                 frame.loadImage();
             }
             frame.elem.classList.toggle('listening', frame.isListening);
@@ -385,7 +385,7 @@ class ChannelFrame {
 
     setupEventListeners(): void {
         this.elem.addEventListener('click', () => this.tuner.tune(this));
-        this.img.addEventListener('load', () => this.destroyPlayer());
+        this.img.addEventListener('load', () => this.unloadVideo());
         this.video.addEventListener('loadeddata', () => this.unloadImage());
     }
 
@@ -415,10 +415,6 @@ class ChannelFrame {
     }
 
     unloadVideo(): void {
-        this.player?.unload();
-    }
-
-    destroyPlayer(): void {
         if (this.player) {
             this.player.unload();
             this.player.detachMediaElement();
