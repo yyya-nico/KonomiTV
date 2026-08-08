@@ -303,6 +303,7 @@ class Tuner {
         this.chFrames.forEach((frame, index) => {
             frame.isListening = newStates[index];
             if (frame.isListening) {
+                frame.video.muted = false;
                 frame.loadVideo();
             } else {
                 frame.video.muted = true;
