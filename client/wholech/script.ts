@@ -19,23 +19,25 @@ class UIController {
     wrap: HTMLElement;
     chList: HTMLElement;
     control: HTMLElement;
+    tileSplitBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
     hideTimer: ReturnType<typeof setTimeout> | null;
     delayHideTimer: ReturnType<typeof setTimeout> | null;
     onTuning: (ch: number | 'up' | 'down') => void;
-    onViewMainClick: () => void;
+    onTileSplitClick: () => void;
 
-    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
+    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement,  tileSplitBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
         this.wrap = wrap;
         this.chList = chList;
         this.control = control;
+        this.tileSplitBtn = tileSplitBtn;
         this.keepDisplaySw = keepDisplaySw;
         this.fullscreenBtn = fullscreenBtn;
         this.hideTimer = null;
         this.delayHideTimer = null;
         this.onTuning = () => {};
-        this.onViewMainClick = () => {};
+        this.onTileSplitClick = () => {};
     }
 
     init(): void {
@@ -51,6 +53,8 @@ class UIController {
         this.keepDisplaySw.addEventListener('change', showAndHide);
 
         window.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeydown(e, showAndHide));
+
+        this.tileSplitBtn.addEventListener('click', () => this.onTileSplitClick());
 
         window.addEventListener('scroll', () => this.handleScroll());
     }
@@ -69,6 +73,11 @@ class UIController {
             case 'f':
                 this.fullscreenBtn.click();
                 this.fullscreenBtn.focus();
+                break;
+            case 'V':
+            case 'v':
+                this.tileSplitBtn.click();
+                this.tileSplitBtn.focus();
                 break;
             case 'ArrowUp':
             case 'ArrowRight':
@@ -208,8 +217,8 @@ class UIController {
         this.onTuning = callback;
     }
 
-    setOnViewMainClick(callback: () => void): void {
-        this.onViewMainClick = callback;
+    setOnTileSplitClick(callback: () => void): void {
+        this.onTileSplitClick = callback;
     }
 }
 
@@ -247,17 +256,13 @@ class ChannelManager {
 class Tuner {
     chList: HTMLElement;
     chFrames: ChannelFrame[];
-    mainVideo: HTMLVideoElement;
-    player: mpegts.Player | null;
 
-    constructor(chList: HTMLElement, chFrames: ChannelFrame[], mainVideo: HTMLVideoElement) {
+    constructor(chList: HTMLElement, chFrames: ChannelFrame[]) {
         this.chList = chList;
         this.chFrames = chFrames;
-        this.mainVideo = mainVideo;
-        this.player = null;
     }
 
-    tune(ch: number | 'up' | 'down' | 'all' | 'toggle-all' | ChannelFrame): void {
+    tune(ch: number | 'up' | 'down' | 'all' | ChannelFrame): void {
         const beforeListening = this.chFrames.map(frame => frame.isListening);
         const isSingleListen = beforeListening.filter(listening => listening).length === 1;
         const listenIndex = beforeListening.indexOf(true);
@@ -292,26 +297,16 @@ class Tuner {
     applyMuteState(listenIndex: number | 'all' | null): void {
         const newStates = Array(this.chFrames.length).fill(false);
         const isSingleListen = typeof listenIndex === 'number';
-        if (this.player) {
-            this.player.unload();
-            this.player.detachMediaElement();
-            this.player.destroy();
-            this.player = null;
-        }
         if (isSingleListen) {
             newStates[listenIndex] = true;
-            const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.chFrames[listenIndex].ch.display_channel_id}/720p/mpegts`;
-            this.player = mpegts.createPlayer({
-                type: 'mse',
-                isLive: true,
-                url: streamPath
-            });
-            this.player.attachMediaElement(this.mainVideo);
-            this.player.load();
-            this.player.play();
         }
         this.chFrames.forEach((frame, index) => {
             frame.isListening = newStates[index];
+            if (frame.isListening) {
+                frame.loadVideo();
+            } else {
+                frame.unloadVideo();
+            }
             frame.elem.classList.toggle('listening', frame.isListening);
         });
         this.chList.classList.toggle('choiced', isSingleListen);
@@ -324,25 +319,29 @@ class ChannelFrame {
     tuner: Tuner;
     elem: HTMLElement;
     img: HTMLImageElement;
+    video: HTMLVideoElement;
     broadcastTitle: HTMLElement;
     title: HTMLElement;
     startTime: HTMLElement;
     endTime: HTMLElement;
     isListening: boolean;
+    player: mpegts.Player | null;
 
     constructor(ch: ILiveChannel, tuner: Tuner) {
         this.ch = ch;
         this.tuner = tuner;
         this.elem = null as any;
         this.img = null as any;
+        this.video = null as any;
         this.broadcastTitle = null as any;
         this.title = null as any;
         this.startTime = null as any;
         this.endTime = null as any;
         this.isListening = false;
+        this.player = null;
         this.createElement();
         this.setupEventListeners();
-        this.initPlayer();
+        this.loadImage();
     }
 
     get focusable(): boolean {
@@ -359,6 +358,7 @@ class ChannelFrame {
         this.focusable = false;
         this.elem.innerHTML = `
         <img>
+        <video playsinline controlsList="noremoteplayback" autoplay></video>
         <div class="broadcast-wrap">
             <div class="broadcast-channel-box">
                 <span class="broadcast-channel">${this.ch.remocon_id}</span>
@@ -375,6 +375,7 @@ class ChannelFrame {
         </div>
         `;
         this.img = this.elem.querySelector('img')!;
+        this.video = this.elem.querySelector('video')!;
         this.broadcastTitle = this.elem.querySelector('.broadcast-title')!;
         this.title = this.elem.querySelector('.broadcast-title-id')!;
         this.startTime = this.elem.querySelector('.broadcast-start')!;
@@ -385,9 +386,39 @@ class ChannelFrame {
         this.elem.addEventListener('click', () => this.tuner.tune(this));
     }
 
-    initPlayer(): void {
+    loadImage(): void {
         const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/360p/i-mjpeg`;
         this.img.src = streamPath;
+    }
+
+    unloadImage(): void {
+        this.img.src = '';
+    }
+
+    loadVideo(): void {
+        if (mpegts.getFeatureList().mseLivePlayback) {
+            const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/720p/mpegts`;
+            this.player = mpegts.createPlayer({
+                type: 'mse',
+                isLive: true,
+                url: streamPath
+            });
+            this.player.attachMediaElement(this.video);
+            this.video.addEventListener('loadeddata', () => {
+                this.unloadImage();
+            }, { once: true });
+            this.player.load();
+        }
+    }
+
+    unloadVideo(): void {
+        if (this.player) {
+            this.loadImage();
+            this.player.unload();
+            this.player.detachMediaElement();
+            this.player.destroy();
+            this.player = null;
+        }
     }
 
     updateProgramInfo(ch: ILiveChannel): void {
@@ -464,11 +495,11 @@ class App {
     wrap: HTMLElement;
     chList: HTMLElement;
     control: HTMLElement;
+    tileSplitBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
     uiController: UIController;
     channelManager: ChannelManager;
-    mainVideo: HTMLVideoElement;
     chFrames: ChannelFrame[];
     tuner: Tuner;
     fullscreenController: FullscreenController;
@@ -478,14 +509,14 @@ class App {
         this.wrap = document.getElementById('wrap')!;
         this.chList = document.getElementById('chlist')!;
         this.control = document.getElementById('control')!;
+        this.tileSplitBtn = document.getElementById('tile-split-view') as HTMLButtonElement;
         this.keepDisplaySw = document.getElementById('keepshowsw') as HTMLInputElement;
         this.fullscreenBtn = document.getElementById('fsbutton') as HTMLButtonElement;
 
-        this.uiController = new UIController(this.wrap, this.chList, this.control, this.keepDisplaySw, this.fullscreenBtn);
+        this.uiController = new UIController(this.wrap, this.chList, this.control, this.tileSplitBtn, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
-        this.mainVideo = document.getElementById('main-video') as HTMLVideoElement;
         this.chFrames = [];
-        this.tuner = new Tuner(this.chList, this.chFrames, this.mainVideo);
+        this.tuner = new Tuner(this.chList, this.chFrames);
         this.fullscreenController = new FullscreenController(this.fullscreenBtn);
     }
 
@@ -493,6 +524,7 @@ class App {
         await this.channelManager.updateChannels();
         this.createChannelFrames();
         this.uiController.setOnTuning((ch) => this.tuner.tune(ch));
+        this.uiController.setOnTileSplitClick(() => this.tuner.tune('all'));
         this.uiController.init();
         this.startPeriodicUpdate();
     }

@@ -90,28 +90,74 @@ body {
         grid-template-rows: repeat(4, 1fr);
         grid-template-columns: repeat(4, 1fr);
 
-        #main-video {
-            grid-area: main;
-            display: block;
-            width: 100%;
-            height: 100%;
-        }
-
         .chframe {
             @for $i from 1 through 11 {
                 &:nth-child(#{$i + 1}) {
                     grid-area: nth((a, b, c, d, e, f, g, h, i, j, k), $i);
                 }
             }
-        }
-    }
+            &.listening {
+                grid-area: main;
 
-    #main-video {
-        display: none;
+                .broadcast-channel-box {
+                    gap: 4px;
+                    top: 7px;
+                    left: 6px;
+                    z-index: 1;
+                    background-color: transparent;
+
+                    .broadcast-logo {
+                        width: 35px;
+                        height: 20px;
+                    }
+                }
+
+                .broadcast-title {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    top: 0;
+                    bottom: auto;
+                    height: auto;
+                    padding: 8px 8px 8px 74px;
+
+                    .broadcast-time {
+                        flex-shrink: 0;
+                        position: static;
+                    }
+                }
+
+                @include desktop {
+                    .broadcast-wrap {
+                        font-size: x-large;
+                    }
+
+                    .broadcast-channel-box {
+                        top: 3px;
+                        font-size: x-large;
+
+                        .broadcast-logo {
+                            width: 56px;
+                            height: 32px;
+                        }
+                    }
+
+                    .broadcast-title {
+                        gap: 4px;
+                        padding-left: 110px;
+
+                        .broadcast-time {
+                            font-size: large;
+                        }
+                    }
+                }
+            }
+        }
     }
 
     .chframe {
         position: relative;
+        aspect-ratio: 16 / 9;
         cursor: pointer;
 
         &:hover,
@@ -121,10 +167,17 @@ body {
             }
         }
 
-        img {
+        img,
+        video {
             display: block;
             width: 100%;
             height: 100%;
+        }
+
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .broadcast-wrap {
