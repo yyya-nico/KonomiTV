@@ -92,7 +92,7 @@ body {
 
         .chframe {
             @for $i from 1 through 11 {
-                &:nth-child(#{$i + 1}) {
+                &:nth-child(#{$i}) {
                     grid-area: nth((a, b, c, d, e, f, g, h, i, j, k), $i);
                 }
             }
