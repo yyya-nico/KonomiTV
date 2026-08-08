@@ -6,6 +6,10 @@ import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
 import Utils from '@/utils';
 
+// 組み込みプレイヤーと同様に、再生開始前に確保する再生バッファ (秒単位)
+// Wholech-old は低遅延モードを利用しないため、通常モードと同じ 4 秒程度の遅延を許容する
+const LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
+
 // UI制御クラス
 class UIController {
     static readonly CHOICED_TILE = [
@@ -369,6 +373,7 @@ class ChannelFrame {
     startTime: HTMLElement;
     endTime: HTMLElement;
     player: any; // mpegts.Player
+    playbackStartupGeneration: number;
 
     constructor(ch: ILiveChannel, tuner: Tuner) {
         this.ch = ch;
@@ -381,6 +386,8 @@ class ChannelFrame {
         this.startTime = null as any;
         this.endTime = null as any;
         this.player = null;
+        // initPlayer() / 再読み込みごとの世代を保持し、古いバッファ待機処理が映像を操作することを防ぐ
+        this.playbackStartupGeneration = 0;
         this.createElement();
         this.setupEventListeners();
         this.initPlayer();
@@ -445,17 +452,51 @@ class ChannelFrame {
             });
             this.player.attachMediaElement(this.video);
             this.reloadButton.addEventListener('click', (e: Event) => this.handleReload(e as MouseEvent));
+            this.startPlaybackAfterBuffering();
             this.player.load();
         }
     }
 
+    startPlaybackAfterBuffering(): void {
+        const playbackStartupGeneration = ++this.playbackStartupGeneration;
+        let playbackStartupStarted = false;
+
+        // 再生可能になった直後は再生速度を 0 にしてバッファを貯め、映像が途切れにくくなってから再生を始める
+        const startPlayback = async (): Promise<void> => {
+            if (playbackStartupStarted === true || playbackStartupGeneration !== this.playbackStartupGeneration) return;
+            playbackStartupStarted = true;
+            this.video.removeEventListener('canplay', startPlayback);
+            this.video.playbackRate = 0;
+
+            // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
+            const playbackBufferSeconds = LIVE_PLAYBACK_BUFFER_SECONDS + (Utils.isSafari() === true ? 0.3 : 0);
+            while (playbackStartupGeneration === this.playbackStartupGeneration &&
+                   this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
+                await Utils.sleep(0.1);
+            }
+
+            // 待機中に再読み込みされた場合は、以前の映像に対する処理を完了させない
+            if (playbackStartupGeneration !== this.playbackStartupGeneration) return;
+            this.video.playbackRate = 1;
+        };
+        this.video.addEventListener('canplay', startPlayback);
+    }
+
+    getPlaybackBufferSeconds(): number {
+        if (this.video.buffered.length === 0) return 0;
+        return Math.max(this.video.buffered.end(this.video.buffered.length - 1) - this.video.currentTime, 0);
+    }
+
     handleReload(e: MouseEvent): void {
         e.stopPropagation();
+        // Shift キーで読み込みを停止する場合も含め、現在実行中の再生開始待機処理を無効化する
+        this.playbackStartupGeneration++;
         this.player.unload();
         if (e.shiftKey) {
             alert('Shiftキーを押しながらクリックしたため、読み込み停止をしました。');
             return;
         }
+        this.startPlaybackAfterBuffering();
         this.player.load();
         this.player.play();
     }

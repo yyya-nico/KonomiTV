@@ -6,6 +6,10 @@ import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
 import Utils, { PlayerUtils } from '@/utils';
 
+// 組み込みプレイヤーと同様に、再生開始前に確保する再生バッファ (秒単位)
+// Wholech は低遅延モードを利用しないため、通常モードと同じ 4 秒程度の遅延を許容する
+const LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
+
 // UI制御クラス
 class UIController {
     static readonly CHOICED_TILE = [
@@ -328,6 +332,7 @@ class ChannelFrame {
     endTime: HTMLElement;
     isListening: boolean;
     player: mpegts.Player | null;
+    playbackStartupGeneration: number;
 
     constructor(ch: ILiveChannel, tuner: Tuner) {
         this.ch = ch;
@@ -341,6 +346,8 @@ class ChannelFrame {
         this.endTime = null as any;
         this.isListening = false;
         this.player = null;
+        // loadVideo() ごとの世代を保持し、チャンネル切り替え後に古いバッファ待機処理が映像を操作することを防ぐ
+        this.playbackStartupGeneration = 0;
         this.createElement();
         this.setupEventListeners();
         this.loadImage();
@@ -404,6 +411,7 @@ class ChannelFrame {
 
     loadVideo(): void {
         if (mpegts.getFeatureList().mseLivePlayback) {
+            const playbackStartupGeneration = ++this.playbackStartupGeneration;
             const networkCircuitType = PlayerUtils.getNetworkCircuitType();
             const quality = networkCircuitType === 'Cellular' ? '360p' : '720p';
             const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/${quality}/mpegts`;
@@ -413,17 +421,45 @@ class ChannelFrame {
                 url: streamPath
             });
             this.player.attachMediaElement(this.video);
+
+            // 再生可能になった直後は再生速度を 0 にしてバッファを貯め、映像が途切れにくくなってから再生を始める
+            let playbackStartupStarted = false;
+            const startPlaybackAfterBuffering = async (): Promise<void> => {
+                if (playbackStartupStarted === true || playbackStartupGeneration !== this.playbackStartupGeneration) return;
+                playbackStartupStarted = true;
+                this.video.removeEventListener('canplay', startPlaybackAfterBuffering);
+                this.video.playbackRate = 0;
+
+                // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
+                const playbackBufferSeconds = LIVE_PLAYBACK_BUFFER_SECONDS + (Utils.isSafari() === true ? 0.3 : 0);
+                while (playbackStartupGeneration === this.playbackStartupGeneration &&
+                       this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
+                    await Utils.sleep(0.1);
+                }
+
+                // 待機中に別のチャンネルへ切り替わった場合は、破棄済みの映像を操作しない
+                if (playbackStartupGeneration !== this.playbackStartupGeneration) return;
+                this.video.playbackRate = 1;
+            };
+            this.video.addEventListener('canplay', startPlaybackAfterBuffering);
             this.player.load();
         }
     }
 
     unloadVideo(): void {
+        // 実行中の再生開始待機処理を無効化する
+        this.playbackStartupGeneration++;
         if (this.player) {
             this.player.unload();
             this.player.detachMediaElement();
             this.player.destroy();
             this.player = null;
         }
+    }
+
+    getPlaybackBufferSeconds(): number {
+        if (this.video.buffered.length === 0) return 0;
+        return Math.max(this.video.buffered.end(this.video.buffered.length - 1) - this.video.currentTime, 0);
     }
 
     updateProgramInfo(ch: ILiveChannel): void {
