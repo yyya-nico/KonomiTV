@@ -306,6 +306,7 @@ class Tuner {
                 frame.loadVideo();
             } else {
                 frame.unloadVideo();
+                frame.loadImage();
             }
             frame.elem.classList.toggle('listening', frame.isListening);
         });
@@ -384,9 +385,14 @@ class ChannelFrame {
 
     setupEventListeners(): void {
         this.elem.addEventListener('click', () => this.tuner.tune(this));
+        this.img.addEventListener('load', () => this.destroyPlayer());
+        this.video.addEventListener('loadeddata', () => this.unloadImage());
     }
 
     loadImage(): void {
+        if (this.img.getAttribute('src')) {
+            return;
+        }
         const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/360p/i-mjpeg`;
         this.img.src = streamPath;
     }
@@ -404,16 +410,16 @@ class ChannelFrame {
                 url: streamPath
             });
             this.player.attachMediaElement(this.video);
-            this.video.addEventListener('loadeddata', () => {
-                this.unloadImage();
-            }, { once: true });
             this.player.load();
         }
     }
 
     unloadVideo(): void {
+        this.player?.unload();
+    }
+
+    destroyPlayer(): void {
         if (this.player) {
-            this.loadImage();
             this.player.unload();
             this.player.detachMediaElement();
             this.player.destroy();
