@@ -4,11 +4,12 @@ import mpegts from 'mpegts.js';
 
 import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
-import Utils from '@/utils';
+import Utils, { PlayerUtils } from '@/utils';
 
-// 組み込みプレイヤーと同様に、再生開始前に確保する再生バッファ (秒単位)
-// Wholech は低遅延モードを利用しないため、通常モードと同じ 4 秒程度の遅延を許容する
-const LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
+// 組み込みプレイヤーと同様の仕組みとして、再生開始前に確保する再生バッファ (秒単位)
+// ネットワーク種別に応じて、通常で 1.5 秒、安定重視で 4 秒程度の遅延を許容する
+const LIVE_PLAYBACK_BUFFER_SECONDS = 1.5;
+const LIVE_PLAYBACK_BUFFER_SECONDS_STABLE = 4.0;
 
 // UI制御クラス
 class UIController {
@@ -416,8 +417,13 @@ class ChannelFrame {
             const player = this.player;
             this.video.playbackRate = 0;
 
+            const networkCircuitType = PlayerUtils.getNetworkCircuitType();
+            let playbackBufferSeconds = networkCircuitType === 'Cellular' ? LIVE_PLAYBACK_BUFFER_SECONDS_STABLE : LIVE_PLAYBACK_BUFFER_SECONDS;
             // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
-            const playbackBufferSeconds = LIVE_PLAYBACK_BUFFER_SECONDS + (Utils.isSafari() === true ? 0.3 : 0);
+            if (Utils.isSafari() === true) {
+                playbackBufferSeconds += 0.3;
+            }
+
             while (this.player === player && this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
                 await Utils.sleep(0.1);
             }
