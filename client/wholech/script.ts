@@ -332,7 +332,7 @@ class ChannelFrame {
     endTime: HTMLElement;
     isListening: boolean;
     player: mpegts.Player | null;
-    playbackStartupGeneration: number;
+    playbackStartupStarted: boolean;
 
     constructor(ch: ILiveChannel, tuner: Tuner) {
         this.ch = ch;
@@ -346,8 +346,8 @@ class ChannelFrame {
         this.endTime = null as any;
         this.isListening = false;
         this.player = null;
-        // loadVideo() ごとの世代を保持し、チャンネル切り替え後に古いバッファ待機処理が映像を操作することを防ぐ
-        this.playbackStartupGeneration = 0;
+        // 同じ Player で canplay が複数回発火しても、再生開始待機処理を重複実行しないためのフラグ
+        this.playbackStartupStarted = false;
         this.createElement();
         this.setupEventListeners();
         this.loadImage();
@@ -393,8 +393,40 @@ class ChannelFrame {
 
     setupEventListeners(): void {
         this.elem.addEventListener('click', () => this.tuner.tune(this));
-        this.img.addEventListener('load', () => this.unloadVideo());
-        this.video.addEventListener('loadeddata', () => this.unloadImage());
+        this.img.addEventListener('load', () => {
+            // MJPEG のロード完了前に同じチャンネルへ戻った場合、遅れて発火した load イベントで
+            // 新しく作成した動画 Player を破棄してしまわないよう、現在も画像表示中の場合だけ破棄する
+            if (this.isListening === false) {
+                this.unloadVideo();
+            }
+        });
+        this.video.addEventListener('loadeddata', () => {
+            // 動画のロード完了前に画像表示へ戻った場合、古い loadeddata イベントで
+            // 新しく読み込み始めた MJPEG を解除しないよう、現在も動画表示中の場合だけ破棄する
+            if (this.isListening === true) {
+                this.unloadImage();
+            }
+        });
+        const startPlaybackAfterBuffering = async () => {
+            // 画像表示中・Player の破棄後・同じ Player で処理開始済みの場合は何もしない
+            if (this.isListening === false || this.player === null || this.playbackStartupStarted === true) return;
+            this.playbackStartupStarted = true;
+
+            // 待機開始時点の Player を保持し、待機中に Player が再作成されたことを単純な同一性比較で検出する
+            const player = this.player;
+            this.video.playbackRate = 0;
+
+            // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
+            const playbackBufferSeconds = LIVE_PLAYBACK_BUFFER_SECONDS + (Utils.isSafari() === true ? 0.3 : 0);
+            while (this.player === player && this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
+                await Utils.sleep(0.1);
+            }
+
+            // 待機中に別のチャンネルへ切り替わった場合は、破棄済みの映像を操作しない
+            if (this.player !== player) return;
+            this.video.playbackRate = 1;
+        };
+        this.video.addEventListener('canplay', startPlaybackAfterBuffering);
     }
 
     loadImage(): void {
@@ -411,47 +443,32 @@ class ChannelFrame {
 
     loadVideo(): void {
         if (mpegts.getFeatureList().mseLivePlayback) {
-            const playbackStartupGeneration = ++this.playbackStartupGeneration;
+            // MJPEG のロード完了を待たずに同じチャンネルへ戻ると、以前の Player がまだ残っていることがある
+            // 同じ HTMLVideoElement に複数の Player を紐付けると MSE の状態が競合するため、必ず以前の Player を破棄する
+            this.unloadVideo();
+
             const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/360p/mpegts`;
-            this.player = mpegts.createPlayer({
+            const player = mpegts.createPlayer({
                 type: 'mse',
                 isLive: true,
                 url: streamPath
             });
-            this.player.attachMediaElement(this.video);
-
-            // 再生可能になった直後は再生速度を 0 にしてバッファを貯め、映像が途切れにくくなってから再生を始める
-            let playbackStartupStarted = false;
-            const startPlaybackAfterBuffering = async (): Promise<void> => {
-                if (playbackStartupStarted === true || playbackStartupGeneration !== this.playbackStartupGeneration) return;
-                playbackStartupStarted = true;
-                this.video.removeEventListener('canplay', startPlaybackAfterBuffering);
-                this.video.playbackRate = 0;
-
-                // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
-                const playbackBufferSeconds = LIVE_PLAYBACK_BUFFER_SECONDS + (Utils.isSafari() === true ? 0.3 : 0);
-                while (playbackStartupGeneration === this.playbackStartupGeneration &&
-                       this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
-                    await Utils.sleep(0.1);
-                }
-
-                // 待機中に別のチャンネルへ切り替わった場合は、破棄済みの映像を操作しない
-                if (playbackStartupGeneration !== this.playbackStartupGeneration) return;
-                this.video.playbackRate = 1;
-            };
-            this.video.addEventListener('canplay', startPlaybackAfterBuffering);
-            this.player.load();
+            this.player = player;
+            player.attachMediaElement(this.video);
+            player.load();
         }
     }
 
     unloadVideo(): void {
-        // 実行中の再生開始待機処理を無効化する
-        this.playbackStartupGeneration++;
-        if (this.player) {
-            this.player.unload();
-            this.player.detachMediaElement();
-            this.player.destroy();
+        // 次に作成する Player では再び再生開始待機処理を実行する
+        this.playbackStartupStarted = false;
+        if (this.player !== null) {
+            // 破棄処理中に新しい Player が this.player に入っても巻き込まないよう、先に参照を切り離す
+            const player = this.player;
             this.player = null;
+            player.unload();
+            player.detachMediaElement();
+            player.destroy();
         }
     }
 
