@@ -4,7 +4,7 @@ import mpegts from 'mpegts.js';
 
 import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
-import Utils, { PlayerUtils } from '@/utils';
+import Utils from '@/utils';
 
 // 組み込みプレイヤーと同様に、再生開始前に確保する再生バッファ (秒単位)
 // Wholech は低遅延モードを利用しないため、通常モードと同じ 4 秒程度の遅延を許容する
@@ -412,9 +412,7 @@ class ChannelFrame {
     loadVideo(): void {
         if (mpegts.getFeatureList().mseLivePlayback) {
             const playbackStartupGeneration = ++this.playbackStartupGeneration;
-            const networkCircuitType = PlayerUtils.getNetworkCircuitType();
-            const quality = networkCircuitType === 'Cellular' ? '360p' : '720p';
-            const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/${quality}/mpegts`;
+            const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/360p/mpegts`;
             this.player = mpegts.createPlayer({
                 type: 'mse',
                 isLive: true,
