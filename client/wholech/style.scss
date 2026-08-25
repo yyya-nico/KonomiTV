@@ -1,16 +1,32 @@
-*, ::before, ::after{
+*,
+::before,
+::after {
     box-sizing: border-box;
 }
 
-html, body {
+:root {
+    --accent-color: #2d96ff;
+}
+
+html,
+body {
     height: 100%;
+
+    @include smartphone-vertical {
+        height: auto;
+    }
 }
 
 body {
     margin: 0;
     padding: 0;
-    color: #EFEFEF;
+    color: #efefef;
     background: #000;
+}
+
+:focus {
+    outline: 3px solid var(--accent-color);
+    outline-offset: -3px;
 }
 
 .material-icons {
@@ -23,14 +39,11 @@ body {
     justify-content: center;
     align-items: center;
 
-    &.hide-ui {
-        .chframe {
-            .control {
-                visibility: hidden;
-                opacity: 0;
-            }
-        }
+    @include smartphone-vertical {
+        height: auto;
+    }
 
+    &.hide-ui {
         #control {
             visibility: hidden;
             opacity: 0;
@@ -38,7 +51,7 @@ body {
 
         &,
         & * {
-            cursor: none!important;
+            cursor: none !important;
         }
     }
 
@@ -53,39 +66,118 @@ body {
 }
 
 #chlist {
+    display: grid;
+    grid-template-rows: repeat(3, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     width: 177.78vh;
     max-width: 100%;
     height: 56.25vw;
     max-height: 100%;
-    display: grid;
-    grid-template-rows: repeat(3, 1fr);
-    grid-template-columns: repeat(3, 1fr);
+
+    @include smartphone-vertical {
+        display: block;
+        height: auto;
+        max-height: none;
+    }
 
     &.choiced {
-        grid-template-rows: repeat(4, 1fr);
+        grid-template-areas:
+            "main main main g"
+            "main main main f"
+            "main main main e"
+            "a    b    c    d"
+            "h    i    j    k";
+        grid-template-rows: repeat(4, 25%);
         grid-template-columns: repeat(4, 1fr);
 
-        > .chframe.listening {
-            grid-column: 1 / 4;
-            grid-row: 1 / 4;
+        .chframe {
+            @for $i from 1 through 11 {
+                &:nth-child(#{$i}) {
+                    grid-area: nth((a, b, c, d, e, f, g, h, i, j, k), $i);
+                }
+            }
+            &.listening {
+                grid-area: main;
+
+                .broadcast-channel-box {
+                    gap: 4px;
+                    top: 7px;
+                    left: 6px;
+                    z-index: 1;
+                    background-color: transparent;
+
+                    .broadcast-logo {
+                        width: 35px;
+                        height: 20px;
+                    }
+                }
+
+                .broadcast-title {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    top: 0;
+                    bottom: auto;
+                    height: auto;
+                    padding: 8px 8px 8px 74px;
+
+                    .broadcast-time {
+                        flex-shrink: 0;
+                        position: static;
+                    }
+                }
+
+                @include desktop {
+                    .broadcast-wrap {
+                        font-size: x-large;
+                    }
+
+                    .broadcast-channel-box {
+                        top: 3px;
+                        font-size: x-large;
+
+                        .broadcast-logo {
+                            width: 56px;
+                            height: 32px;
+                        }
+                    }
+
+                    .broadcast-title {
+                        gap: 4px;
+                        padding-left: 110px;
+
+                        .broadcast-time {
+                            font-size: large;
+                        }
+                    }
+                }
+            }
         }
     }
 
-    > .chframe {
+    .chframe {
         position: relative;
-        transition: 0.5s;
+        aspect-ratio: 16 / 9;
         cursor: pointer;
 
-        &:hover {
+        &:hover,
+        &:focus {
             .broadcast-title {
                 height: calc(1.2em * 3);
             }
         }
 
+        img,
         video {
+            display: block;
             width: 100%;
             height: 100%;
-            display: block;
+        }
+
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
         }
 
         .broadcast-wrap {
@@ -97,29 +189,28 @@ body {
             font-size: medium;
             visibility: visible;
             opacity: 1;
-            transition: .3s;
+            transition:
+                opacity 0.3s,
+                visibility 0.3s;
         }
 
         .broadcast-channel-box {
+            display: flex;
+            align-items: center;
+            gap: 2px;
             position: absolute;
-            top: 0;
-            left: 0;
-            text-shadow: 0px 0px 1px #000, 1px 1px 2px #000;
-
-            .broadcast-channel {
-                display: inline-block;
-                width: 25px;
-                background: rgba(0, 0, 0, 0.5);
-                border: 2px solid rgba(0, 0, 0, 0.2);
-                text-align: center;
-                font-size: 80%;
-            }
+            top: 2px;
+            left: 2px;
+            padding: 1px 2px;
+            background-color: #00000099;
+            border-radius: 4px;
+            font-size: small;
 
             .broadcast-logo {
-                width: 1.778em;
-                height: 1em;
-                vertical-align: middle;
+                width: 28px;
+                height: 16px;
                 object-fit: cover;
+                border-radius: 2px;
             }
         }
 
@@ -131,7 +222,7 @@ body {
             line-height: 1.2;
             height: 1.2em;
             background: rgba(0, 0, 0, 0.5);
-            transition: 0.5s;
+            transition: height 0.5s;
             overflow: hidden;
 
             .broadcast-time {
@@ -140,26 +231,6 @@ body {
                 right: 0;
                 font-size: small;
             }
-        }
-
-        .control {
-            position: absolute;
-            right: 0;
-            bottom: 1.2em;
-            visibility: hidden;
-            opacity: 0;
-            transition: .3s;
-            user-select: none;
-
-            > * {
-                display: inline-block;
-            }
-        }
-
-        &:hover .control {
-            bottom: calc(1.2em * 3);
-            visibility: visible;
-            opacity: 1;
         }
     }
 }
@@ -170,8 +241,20 @@ body {
     bottom: 0;
     visibility: visible;
     opacity: 1;
-    transition: .3s;
+    transition:
+        opacity 0.3s,
+        visibility 0.3s;
     user-select: none;
+
+    @include smartphone-vertical {
+        margin: 10px;
+        background: rgba(64, 64, 64, 0.8);
+        border-radius: 3px;
+
+        &.slide {
+            transform: translateY(-60px);
+        }
+    }
 
     > * {
         display: inline-block;
@@ -187,11 +270,15 @@ body {
     min-width: 40px;
     height: 40px;
     background: transparent;
-    color: #EFEFEF;
+    color: #efefef;
     border: none;
     vertical-align: middle;
     cursor: pointer;
     opacity: 0.8;
+
+    @include smartphone-vertical {
+        padding: 1px 6px;
+    }
 }
 
 .togglesw {
@@ -201,11 +288,11 @@ body {
         position: absolute;
         inset: 0;
         margin: 0;
-        opacity: 0;
         cursor: pointer;
+        appearance: none;
 
         &:checked + label {
-            color: #2d96ff;
+            color: var(--accent-color);
         }
     }
 
@@ -216,34 +303,6 @@ body {
         align-items: center;
         justify-content: center;
         line-height: 40px;
-        transition: 0.2s;
-    }
-}
-
-@media (orientation: portrait),screen and (max-width: 480px) {
-    html,
-    body,
-    #wrap{
-        height: auto;
-    }
-
-    #chlist {
-        display: block;
-        height: auto;
-        max-height: none;
-    }
-
-    #control {
-        margin: 10px;
-        background: rgba(64, 64, 64, 0.8);
-        border-radius: 3px;
-
-        &.slide{
-            transform: translateY(-60px);
-        }
-    }
-
-    .btn {
-        padding: 1px 6px;
+        transition: color 0.2s;
     }
 }

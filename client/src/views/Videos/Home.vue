@@ -51,6 +51,12 @@
                         :isLoading="is_loading"
                         :forWatchedHistory="true"
                         @more="$router.push('/watched-history/')" />
+                    <router-link v-ripple class="floating-button" to="/past-timetable/">
+                        <div class="floating-button__content">
+                            <Icon class="floating-button__icon" icon="fluent:calendar-20-regular" width="26px" />
+                            <div class="floating-button__text">過去番組表</div>
+                        </div>
+                    </router-link>
                 </div>
             </div>
         </main>
@@ -211,8 +217,7 @@ onUnmounted(() => {
 .videos-home-container-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
-    min-width: 0;  // サイドナビゲーション横のフレックス子要素を親幅内で縮め、タブレット縦画面でのはみ出しを防ぐ
+    width: calc(100% - var(--navigation-width));
 }
 
 .videos-home-container {
@@ -254,6 +259,40 @@ onUnmounted(() => {
                 height: calc(100px * 10);
             }
         }
+    }
+}
+
+.floating-button {
+    display: none;
+    justify-content: center;
+    align-items: center;
+    position: fixed;
+    // iPhone X 以降の Home Indicator の高さ分を考慮
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    right: 20px;
+    padding: 12px 16px;
+    background: rgb(var(--v-theme-background-lighten-2));
+    box-shadow: 0px 4px 7.5px rgba(0, 0, 0, 0.61);
+    border-radius: 12px;
+    user-select: none;
+    cursor: pointer;
+    z-index: 1005;
+    @include smartphone-vertical {
+        display: flex;
+    }
+
+    &__content {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    &__text {
+        margin-left: 8px;
+        margin-right: 2px;
+        color: #FFEAEA;
+        font-size: 16px;
+        font-weight: 500;
     }
 }
 

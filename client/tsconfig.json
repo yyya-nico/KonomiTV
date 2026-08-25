@@ -48,6 +48,7 @@
         "src/**/*.d.ts",
         "src/**/*.tsx",
         "src/**/*.vue",
+        "wholech/**/*.ts",
     ],
     "exclude": [
         "node_modules",

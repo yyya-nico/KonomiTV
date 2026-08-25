@@ -16,7 +16,10 @@
                     <span class="reservation-detail-drawer__tab-text">番組情報 {{ !showSettingsTab ? '（終了済み）' : '' }}</span>
                 </div>
                 <div v-if="showSettingsTab" v-ripple class="reservation-detail-drawer__tab"
-                    :class="{ 'reservation-detail-drawer__tab--active': activeTab === 'settings' }"
+                    :class="{
+                        'reservation-detail-drawer__tab--active': activeTab === 'settings',
+                        'reservation-detail-drawer__tab--disabled': !isEDCBBackend
+                    }"
                     @click="activeTab = 'settings'">
                     <Icon icon="material-symbols:settings-video-camera-outline-rounded" width="20px" height="20px" />
                     <span class="reservation-detail-drawer__tab-text">録画設定</span>
@@ -550,6 +553,11 @@ const handleAddReservation = async () => {
                 height: 3px;
                 background: rgb(var(--v-theme-secondary));
             }
+        }
+
+        &--disabled {
+            color: rgb(var(--v-theme-text-darken-2));
+            pointer-events: none;
         }
     }
 

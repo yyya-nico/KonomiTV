@@ -30,10 +30,20 @@
                         <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
                         <span v-if="!iconOnly" class="navigation__link-text">番組表</span>
                     </router-link>
+                    <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/past-timetable/"
+                        :class="{
+                            'navigation__link--active': $route.path.startsWith('/past-timetable'),
+                            'navigation__link--icon-only': iconOnly,
+                        }"
+                        v-ftooltip.right="iconOnly ? '過去番組表' : ''">
+                        <Icon class="navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
+                        <span v-if="!iconOnly" class="navigation__link-text">過去番組表</span>
+                    </router-link>
                     <router-link v-ripple class="navigation__link" active-class="navigation__link--active" to="/reservations/"
                         :class="{
                             'navigation__link--active': $route.path.startsWith('/reservations'),
                             'navigation__link--icon-only': iconOnly,
+                            'navigation__link--disabled': versionStore.server_version_info?.backend !== 'EDCB',
                         }"
                         v-ftooltip.right="iconOnly ? '録画予約' : ''">
                         <Icon class="navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;" />
@@ -43,6 +53,7 @@
                         :class="{
                             'navigation__link--active': $route.path.startsWith('/captures'),
                             'navigation__link--icon-only': iconOnly,
+                            'navigation__link--disabled': true,
                         }"
                         v-ftooltip.right="iconOnly ? 'キャプチャ' : ''">
                         <Icon class="navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
@@ -129,32 +140,20 @@ export default defineComponent({
 
 .navigation-container {
     flex-shrink: 0;
-    width: 220px;  // .navigation を fixed にするため、浮いた分の幅を確保する
+    width: var(--navigation-width);  // .navigation を fixed にするため、浮いた分の幅を確保する
     background: rgb(var(--v-theme-background-lighten-1));
-    @include smartphone-horizontal {
-        width: 210px;
-    }
-    @include smartphone-horizontal-short {
-        width: 190px;
-    }
     @include smartphone-vertical {
         display: none;
     }
 
     // アイコンのみモード: 幅を68pxに縮小
     &--icon-only {
-        width: 68px;
-        @include smartphone-horizontal {
-            width: 60px;
-        }
-        @include smartphone-horizontal-short {
-            width: 56px;
-        }
+        width: var(--navigation-width-icon-only);
     }
 
     .navigation {
         position: fixed;
-        width: 220px;
+        width: var(--navigation-width);
         top: 65px;  // ヘッダーの高さ分
         left: 0px;
         // スマホ・タブレットのブラウザでアドレスバーが完全に引っ込むまでビューポートの高さが更新されず、
@@ -165,21 +164,11 @@ export default defineComponent({
         z-index: 1;
         @include smartphone-horizontal {
             top: 48px;
-            width: 210px;
-        }
-        @include smartphone-horizontal-short {
-            width: 190px;
         }
 
         // アイコンのみモード: 幅を68pxに縮小
         &--icon-only {
-            width: 68px;
-            @include smartphone-horizontal {
-                width: 60px;
-            }
-            @include smartphone-horizontal-short {
-                width: 56px;
-            }
+            width: var(--navigation-width-icon-only);
         }
 
         .navigation-scroll {
@@ -243,6 +232,10 @@ export default defineComponent({
                     &:hover {
                         background: #5b2d3c;
                     }
+                }
+                &--disabled {
+                    pointer-events: none;
+                    opacity: 0.26;
                 }
                 &--highlight {
                     color: rgb(var(--v-theme-secondary-lighten-1));

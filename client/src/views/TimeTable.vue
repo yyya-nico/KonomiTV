@@ -775,8 +775,7 @@ watch(() => timetableStore.selected_date, () => {
     flex-direction: column;
     flex-grow: 1;
     position: relative;
-    min-width: 0;
-    min-height: 0;  // flex アイテムがオーバーフローしないように
+    width: calc(100% - var(--navigation-width-icon-only));
     // 番組表はビューポート内でスクロールさせるため、高さを明示的に制限する
     // App.vue の main は min-height: 100% で拡大可能なため、ここで高さを制限しないとスクロールが効かない
     // ヘッダー (65px) と ナビゲーション幅は Navigation コンポーネント側で調整されている

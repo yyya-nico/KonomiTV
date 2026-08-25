@@ -55,6 +55,11 @@ const router = createRouter({
             component: () => import('@/views/Videos/Watch.vue'),
         },
         {
+            path: '/past-timetable/',
+            name: 'Past TimeTable',
+            component: () => import('@/views/PastTimeTable.vue'),
+        },
+        {
             path: '/timetable/',
             name: 'TimeTable',
             component: () => import('@/views/TimeTable.vue'),

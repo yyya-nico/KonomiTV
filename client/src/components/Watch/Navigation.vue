@@ -22,12 +22,23 @@
             <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-            :class="{'watch-navigation__link--active': $route.path.startsWith('/reservations')}"
+            :class="{'watch-navigation__link--active': $route.path.startsWith('/past-timetable')}"
+            v-ftooltip.right="'過去番組表'" to="/past-timetable/">
+            <Icon class="watch-navigation__link-icon" icon="fluent:calendar-ltr-20-regular" width="26px" />
+        </router-link>
+        <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
+            :class="{
+                'watch-navigation__link--active': $route.path.startsWith('/reservations'),
+                'watch-navigation__link--disabled': versionStore.server_version_info?.backend !== 'EDCB',
+            }"
             v-ftooltip.right="'録画予約'" to="/reservations/">
             <Icon class="watch-navigation__link-icon" icon="fluent:timer-16-regular" width="26px" style="padding: 0.5px;"/>
         </router-link>
         <router-link v-ripple class="watch-navigation__link" active-class="watch-navigation__link--active"
-            :class="{'watch-navigation__link--active': $route.path.startsWith('/captures')}"
+            :class="{
+                'watch-navigation__link--active': $route.path.startsWith('/captures'),
+                'watch-navigation__link--disabled': true,
+            }"
             v-ftooltip.right="'キャプチャ'" to="/captures/">
             <Icon class="watch-navigation__link-icon" icon="fluent:image-multiple-24-regular" width="26px" />
         </router-link>
@@ -55,11 +66,12 @@ import { mapStores } from 'pinia';
 import { defineComponent } from 'vue';
 
 import usePlayerStore from '@/stores/PlayerStore';
+import useVersionStore from '@/stores/VersionStore';
 
 export default defineComponent({
     name: 'Watch-Navigation',
     computed: {
-        ...mapStores(usePlayerStore),
+        ...mapStores(usePlayerStore, useVersionStore),
     }
 });
 
@@ -151,6 +163,10 @@ export default defineComponent({
         &--active {
             color: rgb(var(--v-theme-primary));
             background: #433532A0;
+        }
+        &--disabled {
+            pointer-events: none;
+            opacity: 0.26;
         }
         + .watch-navigation__link {
             margin-top: 4px;

@@ -47,7 +47,8 @@
                 </label>
                 <v-text-field class="settings__item-form" color="primary" variant="outlined"
                     placeholder="郵便番号" :density="is_form_dense ? 'compact' : 'default'"
-                    :rules="[data_broadcasting_zip_code_validation]" v-model="data_broadcasting_zip_code">
+                    :rules="[data_broadcasting_zip_code_validation]" v-model="data_broadcasting_zip_code"
+                    @blur="formatZipCodeOnBlur">
                 </v-text-field>
             </div>
             <div class="settings__item settings__item--sync-disabled mt-2">
@@ -107,8 +108,8 @@ export default defineComponent({
                 if (value === '') {
                     return true;
                 }
-                if (value.match(/^[0-9]{3}-[0-9]{4}$/) === null) {
-                    return '郵便番号は「000-0000」の形式で入力してください。';
+                if (value.match(/^[0-9]{3}-?[0-9]{4}$/) === null) {
+                    return '郵便番号を正しく入力してください。';
                 }
                 return true;
             },
@@ -237,6 +238,12 @@ export default defineComponent({
         }
     },
     methods: {
+        formatZipCodeOnBlur() {
+            // ハイフンなしの7桁数字入力時は自動でハイフンを付与する
+            if (this.data_broadcasting_zip_code.match(/^[0-9]{7}$/) !== null) {
+                this.data_broadcasting_zip_code = `${this.data_broadcasting_zip_code.slice(0, 3)}-${this.data_broadcasting_zip_code.slice(3)}`;
+            }
+        },
         resetNVRAMSettings() {
             // KonomiTV-BMLBrowser_nvram_ から始まる LocalStorage の項目をすべて削除する
             for (const key in localStorage) {

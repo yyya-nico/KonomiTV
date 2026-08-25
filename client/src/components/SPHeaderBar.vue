@@ -87,6 +87,7 @@ const searchPlaceholder = computed(() => {
 // 動画セクションかどうかを判定
 const isVideoSection = (path: string) => {
     return path.startsWith('/videos') ||
+           path.startsWith('/past-timetable') ||
            path.startsWith('/mylist') ||
            path.startsWith('/watched-history');
 };

@@ -175,8 +175,7 @@ onMounted(async () => {
 .mylist-container-wrapper {
     display: flex;
     flex-direction: column;
-    width: 100%;
-    min-width: 0;  // サイドナビゲーション横のフレックス子要素を親幅内で縮め、タブレット縦画面でのはみ出しを防ぐ
+    width: calc(100% - var(--navigation-width));
     @include smartphone-vertical {
         padding-top: 10px !important;
     }
