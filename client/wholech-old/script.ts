@@ -4,12 +4,11 @@ import mpegts from 'mpegts.js';
 
 import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
-import Utils, { PlayerUtils } from '@/utils';
+import Utils from '@/utils';
 
-// 組み込みプレイヤーと同様の仕組みとして、再生開始前に確保する再生バッファ (秒単位)
-// ネットワーク種別に応じて、通常で 1.5 秒、安定重視で 4 秒程度の遅延を許容する
-const LIVE_PLAYBACK_BUFFER_SECONDS = 1.5;
-const LIVE_PLAYBACK_BUFFER_SECONDS_STABLE = 4.0;
+// 組み込みプレイヤーと同様に、再生開始前に確保する再生バッファ (秒単位)
+// Wholech-old は低遅延モードを利用しないため、通常モードと同じ 4 秒程度の遅延を許容する
+const LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
 
 // UI制御クラス
 class UIController {
@@ -24,25 +23,25 @@ class UIController {
     wrap: HTMLElement;
     chList: HTMLElement;
     control: HTMLElement;
-    tileSplitBtn: HTMLButtonElement;
+    volumeBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
     hideTimer: ReturnType<typeof setTimeout> | null;
     delayHideTimer: ReturnType<typeof setTimeout> | null;
+    onVolumeClick: () => void;
     onTuning: (ch: number | 'up' | 'down') => void;
-    onTileSplitClick: () => void;
 
-    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement,  tileSplitBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
+    constructor(wrap: HTMLElement, chList: HTMLElement, control: HTMLElement, volumeBtn: HTMLButtonElement, keepDisplaySw: HTMLInputElement, fullscreenBtn: HTMLButtonElement) {
         this.wrap = wrap;
         this.chList = chList;
         this.control = control;
-        this.tileSplitBtn = tileSplitBtn;
+        this.volumeBtn = volumeBtn;
         this.keepDisplaySw = keepDisplaySw;
         this.fullscreenBtn = fullscreenBtn;
         this.hideTimer = null;
         this.delayHideTimer = null;
+        this.onVolumeClick = () => {};
         this.onTuning = () => {};
-        this.onTileSplitClick = () => {};
     }
 
     init(): void {
@@ -59,7 +58,7 @@ class UIController {
 
         window.addEventListener('keydown', (e: KeyboardEvent) => this.handleKeydown(e, showAndHide));
 
-        this.tileSplitBtn.addEventListener('click', () => this.onTileSplitClick());
+        this.volumeBtn.addEventListener('click', () => this.onVolumeClick());
 
         window.addEventListener('scroll', () => this.handleScroll());
     }
@@ -69,6 +68,11 @@ class UIController {
         const activeElem = document.activeElement as HTMLElement;
         const activeChFrame = activeElem && activeElem.classList.contains('chframe');
         switch (keyName) {
+            case 'V':
+            case 'v':
+                this.volumeBtn.click();
+                this.volumeBtn.focus();
+                break;
             case 'D':
             case 'd':
                 this.keepDisplaySw.click();
@@ -78,11 +82,6 @@ class UIController {
             case 'f':
                 this.fullscreenBtn.click();
                 this.fullscreenBtn.focus();
-                break;
-            case 'V':
-            case 'v':
-                this.tileSplitBtn.click();
-                this.tileSplitBtn.focus();
                 break;
             case 'ArrowUp':
             case 'ArrowRight':
@@ -149,32 +148,49 @@ class UIController {
             const tileRow = tile.find(r => r.includes(index));
             if (!tileRow) return;
             const realTileLength = chFrames.length <= 7 ? 4 : 4 + Math.ceil((chFrames.length - 7) / cols);
-            const pos = {
-                x: tileRow.findIndex(i => i === index),
-                y: tile.indexOf(tileRow)
-            };
-            const moveOnce = (pos: { x: number, y: number }) => {
+            if (index === listenFrameIndex) {
                 switch (key) {
                     case 'ArrowUp':
-                        pos.y--;
+                    case 'ArrowDown':
+                        nextIndex = 0;
+                        if (nextIndex === listenFrameIndex) nextIndex++;
                         break;
                     case 'ArrowRight':
-                        pos.x++;
-                        break;
-                    case 'ArrowDown':
-                        pos.y++;
-                        break;
                     case 'ArrowLeft':
-                        pos.x--;
+                        nextIndex = 6;
+                        if (nextIndex === listenFrameIndex) nextIndex--;
                         break;
                 }
-                pos.x = (pos.x + tileRow.length) % tileRow.length;
-                pos.y = (pos.y + realTileLength) % realTileLength;
-                return tile[pos.y][pos.x];
-            };
-            nextIndex = moveOnce(pos);
-            if (nextIndex === -1) { // 聴いているチャンネルの場所に移動しようとした場合
-                return; // 移動しない
+            } else {
+                const pos = {
+                    x: tileRow.findIndex(i => i === index),
+                    y: tile.indexOf(tileRow)
+                };
+                const moveOnce = (pos: { x: number, y: number }) => {
+                    switch (key) {
+                        case 'ArrowUp':
+                            pos.y--;
+                            break;
+                        case 'ArrowRight':
+                            pos.x++;
+                            break;
+                        case 'ArrowDown':
+                            pos.y++;
+                            break;
+                        case 'ArrowLeft':
+                            pos.x--;
+                            break;
+                    }
+                    pos.x = (pos.x + tileRow.length) % tileRow.length;
+                    pos.y = (pos.y + realTileLength) % realTileLength;
+                    return tile[pos.y][pos.x];
+                };
+                nextIndex = moveOnce(pos);
+                if (nextIndex === -1) { // 聴いているチャンネルの場所に移動しようとした場合
+                    nextIndex = listenFrameIndex;
+                } else if (nextIndex === listenFrameIndex) { // 隣が聴いているチャンネルだった場合
+                    nextIndex = moveOnce(pos);
+                }
             }
         } else {
             const cols = 3;
@@ -218,12 +234,12 @@ class UIController {
         }, 3000);
     }
 
-    setOnTuning(callback: (ch: number | 'up' | 'down') => void): void {
-        this.onTuning = callback;
+    setOnVolumeClick(callback: () => void): void {
+        this.onVolumeClick = callback;
     }
 
-    setOnTileSplitClick(callback: () => void): void {
-        this.onTileSplitClick = callback;
+    setOnTuning(callback: (ch: number | 'up' | 'down') => void): void {
+        this.onTuning = callback;
     }
 }
 
@@ -259,64 +275,89 @@ class ChannelManager {
 
 // チューナークラス
 class Tuner {
-    chList: HTMLElement;
     chFrames: ChannelFrame[];
+    chList: HTMLElement;
+    volumeBtn: HTMLButtonElement;
 
-    constructor(chList: HTMLElement, chFrames: ChannelFrame[]) {
-        this.chList = chList;
+    constructor(chFrames: ChannelFrame[], chList: HTMLElement, volumeBtn: HTMLButtonElement) {
         this.chFrames = chFrames;
+        this.chList = chList;
+        this.volumeBtn = volumeBtn;
     }
 
-    tune(ch: number | 'up' | 'down' | 'all' | ChannelFrame): void {
-        const beforeListening = this.chFrames.map(frame => frame.isListening);
-        const isSingleListen = beforeListening.filter(listening => listening).length === 1;
-        const listenIndex = beforeListening.indexOf(true);
-        let listenPos: number | 'all' | null = null;
+    tune(ch: number | 'up' | 'down' | 'all' | 'toggle-all' | ChannelFrame): void {
+        const beforeMuted = this.chFrames.map(frame => frame.video.muted);
+        const isSingleUnmuted = beforeMuted.filter(muted => !muted).length === 1;
+        const unmutedIndex = beforeMuted.indexOf(false);
+        let unmutePos: number | 'all' | null = null;
         if (typeof ch === 'number') {
             ch = ch === 0 ? 10 : ch;
             const foundFrameIndex = this.chFrames.findIndex(frame => frame.ch.remocon_id === ch);
             if (foundFrameIndex === -1) return;
-            listenPos = foundFrameIndex;
+            unmutePos = foundFrameIndex;
         } else if (ch === 'up' || ch === 'down') {
-            if (isSingleListen) {
+            if (isSingleUnmuted) {
                 const relativeIndex = ch === 'up' ? 1 : -1;
-                const index = (listenIndex + relativeIndex + this.chFrames.length) % this.chFrames.length;
-                listenPos = index;
+                const index = (unmutedIndex + relativeIndex + this.chFrames.length) % this.chFrames.length;
+                unmutePos = index;
             } else {
                 const focusableFrameIndex = this.chFrames.findIndex(frame => frame.focusable);
-                listenPos = focusableFrameIndex;
+                unmutePos = focusableFrameIndex;
             }
         } else if (ch === 'all') {
-            listenPos = 'all';
+            unmutePos = 'all';
+        } else if (ch === 'toggle-all') {
+            const allMuted = this.chFrames.every(frame => frame.video.muted);
+            if (allMuted) {
+                unmutePos = 'all';
+            }
         } else if (typeof ch === 'object') {
             const currentFrame = ch;
             const index = this.chFrames.indexOf(currentFrame);
             if (index === -1) return;
-            if (!isSingleListen || listenIndex !== index) {
-                listenPos = index;
+            if (!isSingleUnmuted || unmutedIndex !== index) {
+                unmutePos = index;
             }
         }
-        this.applyMuteState(listenPos);
+        this.applyMuteState(unmutePos);
     }
 
-    applyMuteState(listenIndex: number | 'all' | null): void {
-        const newStates = Array(this.chFrames.length).fill(false);
-        const isSingleListen = typeof listenIndex === 'number';
-        if (isSingleListen) {
-            newStates[listenIndex] = true;
+    applyMuteState(unmutePos: number | 'all' | null): void {
+        const newStates = Array(this.chFrames.length).fill(true);
+        const isSingleUnmute = typeof unmutePos === 'number';
+        if (isSingleUnmute) {
+            newStates[unmutePos] = false;
+        } else if (unmutePos === 'all') {
+            newStates.fill(false);
         }
         this.chFrames.forEach((frame, index) => {
-            frame.isListening = newStates[index];
-            if (frame.isListening) {
-                frame.video.muted = false;
-                frame.loadVideo();
-            } else {
-                frame.video.muted = true;
-                frame.loadImage();
-            }
-            frame.elem.classList.toggle('listening', frame.isListening);
+            frame.video.muted = newStates[index];
         });
-        this.chList.classList.toggle('choiced', isSingleListen);
+        this.chList.classList.toggle('choiced', isSingleUnmute);
+        if (isSingleUnmute) {
+            this.chFrames.filter(frame => frame.focusable).forEach(frame => {
+                frame.focusable = false;
+            });
+            this.chFrames[unmutePos].focusable = true;
+            this.chFrames[unmutePos].elem.focus();
+        }
+        this.updateVolumeButton();
+    }
+
+    updateVolumeButton(): void {
+        const audible = this.chFrames.some(chFrame => !chFrame.video.muted);
+        const allAudible = this.chFrames.every(chFrame => !chFrame.video.muted);
+        if (audible) {
+            this.volumeBtn.innerHTML = '<i class="material-icons">volume_up</i>';
+            if (allAudible) {
+                this.volumeBtn.title = 'ミュートする(V)';
+            } else {
+                this.volumeBtn.title = '全ch聴く(V)';
+            }
+        } else {
+            this.volumeBtn.innerHTML = '<i class="material-icons">volume_off</i>';
+            this.volumeBtn.title = '全ch聴く(V)';
+        }
     }
 }
 
@@ -325,33 +366,31 @@ class ChannelFrame {
     ch: ILiveChannel;
     tuner: Tuner;
     elem: HTMLElement;
-    img: HTMLImageElement;
     video: HTMLVideoElement;
+    reloadButton: HTMLButtonElement;
     broadcastTitle: HTMLElement;
     title: HTMLElement;
     startTime: HTMLElement;
     endTime: HTMLElement;
-    isListening: boolean;
-    player: mpegts.Player | null;
-    playbackStartupStarted: boolean;
+    player: any; // mpegts.Player
+    playbackStartupGeneration: number;
 
     constructor(ch: ILiveChannel, tuner: Tuner) {
         this.ch = ch;
         this.tuner = tuner;
         this.elem = null as any;
-        this.img = null as any;
         this.video = null as any;
+        this.reloadButton = null as any;
         this.broadcastTitle = null as any;
         this.title = null as any;
         this.startTime = null as any;
         this.endTime = null as any;
-        this.isListening = false;
         this.player = null;
-        // 同じ Player で canplay が複数回発火しても、再生開始待機処理を重複実行しないためのフラグ
-        this.playbackStartupStarted = false;
+        // initPlayer() / 再読み込みごとの世代を保持し、古いバッファ待機処理が映像を操作することを防ぐ
+        this.playbackStartupGeneration = 0;
         this.createElement();
         this.setupEventListeners();
-        this.loadImage();
+        this.initPlayer();
     }
 
     get focusable(): boolean {
@@ -367,8 +406,7 @@ class ChannelFrame {
         this.elem.classList.add('chframe');
         this.focusable = false;
         this.elem.innerHTML = `
-        <img>
-        <video playsinline controlsList="noremoteplayback" autoplay></video>
+        <video playsinline controlsList="noremoteplayback" autoplay muted></video>
         <div class="broadcast-wrap">
             <div class="broadcast-channel-box">
                 <span class="broadcast-channel">${this.ch.remocon_id}</span>
@@ -383,9 +421,12 @@ class ChannelFrame {
                 </div>
             </div>
         </div>
+        <div class="control">
+            <button type="button" class="reload btn" title="再読み込み"><i class="material-icons">refresh</i></button>
+        </div>
         `;
-        this.img = this.elem.querySelector('img')!;
         this.video = this.elem.querySelector('video')!;
+        this.reloadButton = this.elem.querySelector('.reload')!;
         this.broadcastTitle = this.elem.querySelector('.broadcast-title')!;
         this.title = this.elem.querySelector('.broadcast-title-id')!;
         this.startTime = this.elem.querySelector('.broadcast-start')!;
@@ -394,93 +435,70 @@ class ChannelFrame {
 
     setupEventListeners(): void {
         this.elem.addEventListener('click', () => this.tuner.tune(this));
-        this.img.addEventListener('load', () => {
-            // MJPEG のロード完了前に同じチャンネルへ戻った場合、遅れて発火した load イベントで
-            // 新しく作成した動画 Player を破棄してしまわないよう、現在も画像表示中の場合だけ破棄する
-            if (this.isListening === false) {
-                this.unloadVideo();
-            }
-        });
-        this.video.addEventListener('loadeddata', () => {
-            // 動画のロード完了前に画像表示へ戻った場合、古い loadeddata イベントで
-            // 新しく読み込み始めた MJPEG を解除しないよう、現在も動画表示中の場合だけ破棄する
-            if (this.isListening === true) {
-                this.unloadImage();
-            }
-        });
-        const startPlaybackAfterBuffering = async () => {
-            // 画像表示中・Player の破棄後・同じ Player で処理開始済みの場合は何もしない
-            if (this.isListening === false || this.player === null || this.playbackStartupStarted === true) return;
-            this.playbackStartupStarted = true;
-
-            // 待機開始時点の Player を保持し、待機中に Player が再作成されたことを単純な同一性比較で検出する
-            const player = this.player;
-            this.video.playbackRate = 0;
-
-            const networkCircuitType = PlayerUtils.getNetworkCircuitType();
-            let playbackBufferSeconds = networkCircuitType === 'Cellular' ? LIVE_PLAYBACK_BUFFER_SECONDS_STABLE : LIVE_PLAYBACK_BUFFER_SECONDS;
-            // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
-            if (Utils.isSafari() === true) {
-                playbackBufferSeconds += 0.3;
-            }
-
-            while (this.player === player && this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
-                await Utils.sleep(0.1);
-            }
-
-            // 待機中に別のチャンネルへ切り替わった場合は、破棄済みの映像を操作しない
-            if (this.player !== player) return;
-            this.video.playbackRate = 1;
-        };
-        this.video.addEventListener('canplay', startPlaybackAfterBuffering);
+        this.video.addEventListener('volumechange', (e: Event) => this.handleVolumeChange(e as Event & { target: HTMLVideoElement }));
     }
 
-    loadImage(): void {
-        if (this.img.getAttribute('src')) {
-            return;
-        }
-        const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/360p/i-mjpeg`;
-        this.img.src = streamPath;
+    handleVolumeChange(e: Event & { target: HTMLVideoElement }): void {
+        this.elem.classList.toggle('listening', !e.target.muted);
     }
 
-    unloadImage(): void {
-        this.img.src = '';
-    }
-
-    loadVideo(): void {
+    initPlayer(): void {
         if (mpegts.getFeatureList().mseLivePlayback) {
-            // MJPEG のロード完了を待たずに同じチャンネルへ戻ると、以前の Player がまだ残っていることがある
-            // 同じ HTMLVideoElement に複数の Player を紐付けると MSE の状態が競合するため、必ず以前の Player を破棄する
-            this.unloadVideo();
-
             const streamPath = `${Utils.getApiBaseUrl()}/streams/live/${this.ch.display_channel_id}/360p/mpegts`;
-            const player = mpegts.createPlayer({
+            this.player = mpegts.createPlayer({
                 type: 'mse',
                 isLive: true,
                 url: streamPath
             });
-            this.player = player;
-            player.attachMediaElement(this.video);
-            player.load();
+            this.player.attachMediaElement(this.video);
+            this.reloadButton.addEventListener('click', (e: Event) => this.handleReload(e as MouseEvent));
+            this.startPlaybackAfterBuffering();
+            this.player.load();
         }
     }
 
-    unloadVideo(): void {
-        // 次に作成する Player では再び再生開始待機処理を実行する
-        this.playbackStartupStarted = false;
-        if (this.player !== null) {
-            // 破棄処理中に新しい Player が this.player に入っても巻き込まないよう、先に参照を切り離す
-            const player = this.player;
-            this.player = null;
-            player.unload();
-            player.detachMediaElement();
-            player.destroy();
-        }
+    startPlaybackAfterBuffering(): void {
+        const playbackStartupGeneration = ++this.playbackStartupGeneration;
+        let playbackStartupStarted = false;
+
+        // 再生可能になった直後は再生速度を 0 にしてバッファを貯め、映像が途切れにくくなってから再生を始める
+        const startPlayback = async (): Promise<void> => {
+            if (playbackStartupStarted === true || playbackStartupGeneration !== this.playbackStartupGeneration) return;
+            playbackStartupStarted = true;
+            this.video.removeEventListener('canplay', startPlayback);
+            this.video.playbackRate = 0;
+
+            // Safari の MSE はバッファ量が揺らぎやすいため、組み込みプレイヤーと同じく 0.3 秒余裕を持たせる
+            const playbackBufferSeconds = LIVE_PLAYBACK_BUFFER_SECONDS + (Utils.isSafari() === true ? 0.3 : 0);
+            while (playbackStartupGeneration === this.playbackStartupGeneration &&
+                   this.getPlaybackBufferSeconds() < playbackBufferSeconds) {
+                await Utils.sleep(0.1);
+            }
+
+            // 待機中に再読み込みされた場合は、以前の映像に対する処理を完了させない
+            if (playbackStartupGeneration !== this.playbackStartupGeneration) return;
+            this.video.playbackRate = 1;
+        };
+        this.video.addEventListener('canplay', startPlayback);
     }
 
     getPlaybackBufferSeconds(): number {
         if (this.video.buffered.length === 0) return 0;
         return Math.max(this.video.buffered.end(this.video.buffered.length - 1) - this.video.currentTime, 0);
+    }
+
+    handleReload(e: MouseEvent): void {
+        e.stopPropagation();
+        // Shift キーで読み込みを停止する場合も含め、現在実行中の再生開始待機処理を無効化する
+        this.playbackStartupGeneration++;
+        this.player.unload();
+        if (e.shiftKey) {
+            alert('Shiftキーを押しながらクリックしたため、読み込み停止をしました。');
+            return;
+        }
+        this.startPlaybackAfterBuffering();
+        this.player.load();
+        this.player.play();
     }
 
     updateProgramInfo(ch: ILiveChannel): void {
@@ -557,7 +575,7 @@ class App {
     wrap: HTMLElement;
     chList: HTMLElement;
     control: HTMLElement;
-    tileSplitBtn: HTMLButtonElement;
+    volumeBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
     uiController: UIController;
@@ -566,27 +584,26 @@ class App {
     tuner: Tuner;
     fullscreenController: FullscreenController;
 
-
     constructor() {
         this.wrap = document.getElementById('wrap')!;
         this.chList = document.getElementById('chlist')!;
         this.control = document.getElementById('control')!;
-        this.tileSplitBtn = document.getElementById('tile-split-view') as HTMLButtonElement;
+        this.volumeBtn = document.getElementById('volumebutton') as HTMLButtonElement;
         this.keepDisplaySw = document.getElementById('keepshowsw') as HTMLInputElement;
         this.fullscreenBtn = document.getElementById('fsbutton') as HTMLButtonElement;
 
-        this.uiController = new UIController(this.wrap, this.chList, this.control, this.tileSplitBtn, this.keepDisplaySw, this.fullscreenBtn);
+        this.uiController = new UIController(this.wrap, this.chList, this.control, this.volumeBtn, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
         this.chFrames = [];
-        this.tuner = new Tuner(this.chList, this.chFrames);
+        this.tuner = new Tuner(this.chFrames, this.chList, this.volumeBtn);
         this.fullscreenController = new FullscreenController(this.fullscreenBtn);
     }
 
     async init(): Promise<void> {
         await this.channelManager.updateChannels();
         this.createChannelFrames();
+        this.uiController.setOnVolumeClick(() => this.tuner.tune('toggle-all'));
         this.uiController.setOnTuning((ch) => this.tuner.tune(ch));
-        this.uiController.setOnTileSplitClick(() => this.tuner.tune('all'));
         this.uiController.init();
         this.startPeriodicUpdate();
     }

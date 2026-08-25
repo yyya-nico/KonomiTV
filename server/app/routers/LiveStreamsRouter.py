@@ -265,6 +265,83 @@ async def LivePSIArchivedDataAPI(
     return response
 
 
+# ***** I-MJPEG ストリーミング API *****
+
+
+@router.get(
+    '/{display_channel_id}/{quality}/i-mjpeg',
+    summary = 'ライブ I-MJPEG ストリーム API',
+    response_class = Response,
+    responses = {
+        status.HTTP_200_OK: {
+            'description': 'エンコード済み映像の I フレームから生成したライブ I-MJPEG ストリーム。',
+            'content': {'multipart/x-mixed-replace': {}},
+        }
+    },
+)
+async def LiveIMJPEGStreamAPI(
+    request: Request,
+    display_channel_id: Annotated[str, Depends(ValidateChannelID)],
+    stream_quality: Annotated[StreamQualityWithOptions, Depends(ValidateQuality)],
+):
+    """
+    通常のライブエンコード後 MPEG-TS に含まれる I フレームを JPEG 化して随時配信する。
+
+    JPEG の配信間隔は固定せず、エンコード後映像の GOP と I フレーム出現間隔に従う。
+    同じチャンネル ID・同じ画質の I-MJPEG クライアントは、通常エンコードと JPEG 変換プロセスを共有する。
+    """
+
+    # 品質とオプション指定に対応する LiveStream へ I-MJPEG クライアントとして接続する
+    ## Offline の場合は通常の LiveEncodingTask も起動し、その出力 MPEG-TS を JPEG 変換器へ分岐する
+    live_stream = LiveStream(display_channel_id, stream_quality.quality, stream_quality.encoding_options)
+    live_stream_client = await live_stream.connect('i-mjpeg')
+    boundary = 'konomitv-i-mjpeg-boundary'
+
+    async def generator():
+        """JPEG を multipart/x-mixed-replace の各パートとして出力する。"""
+
+        try:
+            while True:
+                # 通常エンコードまたは I-MJPEG 変換が終了した場合は None が返り、レスポンスを終了する
+                jpeg_data = await live_stream_client.readStreamData()
+                if jpeg_data is None:
+                    break
+
+                yield (
+                    f'--{boundary}\r\n'
+                    'Content-Type: image/jpeg\r\n'
+                    f'Content-Length: {len(jpeg_data)}\r\n'
+                    '\r\n'
+                ).encode('ascii') + jpeg_data + b'\r\n'
+        finally:
+            # StreamingResponse によるジェネレーターのキャンセル時もクライアントを確実に登録解除する
+            live_stream.disconnect(live_stream_client)
+
+    response = StreamingResponse(
+        generator(),
+        media_type = f'multipart/x-mixed-replace; boundary={boundary}',
+        headers = {
+            'Cache-Control': 'no-store',
+            'X-Accel-Buffering': 'no',
+        },
+    )
+
+    # Starlette がジェネレーターを強制終了するより先に client_count と変換器の寿命へ切断を反映する
+    async def listen_for_disconnect_monkeypatch(receive: Receive) -> None:
+        try:
+            while True:
+                message = await receive()
+                if message['type'] == 'http.disconnect':
+                    logging.debug(f'{live_stream.log_prefix} I-MJPEG request is disconnected.')
+                    live_stream.disconnect(live_stream_client)
+                    break
+        except asyncio.CancelledError:
+            pass
+    response.listen_for_disconnect = listen_for_disconnect_monkeypatch
+
+    return response
+
+
 # ***** MPEG-TS ストリーミング API *****
 
 
