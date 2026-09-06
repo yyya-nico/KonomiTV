@@ -23,6 +23,7 @@ from app.metadata.RecordedScanTask import RecordedScanTask
 from app.models.Channel import Channel
 from app.models.Program import Program
 from app.routers import (
+    AuthRouter,
     BlueskyRouter,
     CapturesRouter,
     ChannelsRouter,
@@ -67,6 +68,7 @@ app = FastAPI(
 )
 
 # ルーターの追加
+app.include_router(AuthRouter.router)
 app.include_router(ChannelsRouter.router)
 app.include_router(ProgramsRouter.router)
 app.include_router(VideosRouter.router)

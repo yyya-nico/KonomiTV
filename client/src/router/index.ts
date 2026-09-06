@@ -2,6 +2,9 @@
 
 import { createRouter, createWebHistory } from 'vue-router';
 
+import APIClient from '@/services/APIClient';
+import { IVersionInformation } from '@/services/Version';
+import useVersionStore from '@/stores/VersionStore';
 import Utils from '@/utils';
 
 
@@ -175,6 +178,43 @@ const router = createRouter({
             return {top: 0, left: 0};
         }
     }
+});
+
+// cors-free と同様に、バージョン情報が未取得のときだけ API への接続を確認する。
+// 再認証から戻っても接続できない場合に備え、試行済みの状態はページ遷移をまたいで保持する。
+router.beforeEach(async (to) => {
+    const versionStore = useVersionStore();
+    const reauthAttemptKey = 'KonomiTV-ReauthAttempted';
+    if (versionStore.server_version_info !== null) {
+        sessionStorage.removeItem(reauthAttemptKey);
+        return;
+    }
+
+    const response = await APIClient.get<IVersionInformation>('/version');
+    if (response.type === 'success') {
+        versionStore.server_version_info = response.data;
+        versionStore.last_updated_at = Utils.time();
+        sessionStorage.removeItem(reauthAttemptKey);
+        return;
+    }
+
+    // HTTP エラー応答がある場合は通常のエラー表示に任せる。
+    // 開発時の別ポート API は同一オリジンへの復帰ができないため自動再認証の対象外とする。
+    if (!Number.isNaN(response.status) || response.error.code === 'ERR_CANCELED' ||
+        new URL(Utils.api_base_url).origin !== window.location.origin || navigator.onLine === false) {
+        return;
+    }
+
+    // 同一タブで再認証を繰り返さない。API 接続が回復したときに再試行可能になる。
+    if (sessionStorage.getItem(reauthAttemptKey) !== null) {
+        return;
+    }
+    sessionStorage.setItem(reauthAttemptKey, 'true');
+
+    // /api は Service Worker のナビゲーションフォールバック対象外。
+    // Vue Router を経由せずネットワークへ遷移し、Access の認証後はクエリ・ハッシュごと復帰する。
+    window.location.replace(`${Utils.api_base_url}/auth/reauth?return_to=${encodeURIComponent(to.fullPath)}`);
+    return false;
 });
 
 // ルーティングの変更時に View Transitions API を適用する
