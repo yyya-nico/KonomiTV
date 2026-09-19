@@ -92,6 +92,7 @@ class UIController {
                 break;
             case 'Enter':
             case ' ':
+            case 'MediaPlayPause':
                 if (activeChFrame) {
                     activeElem.click();
                 }
