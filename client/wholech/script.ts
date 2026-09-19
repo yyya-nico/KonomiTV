@@ -104,10 +104,12 @@ class UIController {
                 }
                 break;
             case 'PageUp':
+            case 'MediaTrackNext':
                 e.preventDefault();
                 this.onTuning('up');
                 break;
             case 'PageDown':
+            case 'MediaTrackPrevious':
                 e.preventDefault();
                 this.onTuning('down');
                 break;
