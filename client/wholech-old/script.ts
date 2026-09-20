@@ -89,9 +89,11 @@ class UIController {
             case 'ArrowLeft':
                 this.onDirectionalKey(keyName);
                 break;
+            case 'MediaPlayPause':
+                e.preventDefault();
+                // fall through
             case 'Enter':
             case ' ':
-            case 'MediaPlayPause':
                 if (activeChFrame) {
                     activeElem.click();
                 }
