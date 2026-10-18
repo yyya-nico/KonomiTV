@@ -588,7 +588,17 @@ export default defineComponent({
                     flex-direction: column;
                     position: relative;
                     height: 270px;
-                    grid-row-gap: 10px;
+                    grid-row-gap: 16px;
+
+                    @include tablet-vertical {
+                        grid-row-gap: 10px;
+                    }
+                    @include smartphone-horizontal {
+                        grid-row-gap: 8px;
+                    }
+                    @include smartphone-vertical {
+                        grid-row-gap: 10px;
+                    }
 
                     .channel {
                         flex: 1;
