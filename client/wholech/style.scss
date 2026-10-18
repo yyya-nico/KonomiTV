@@ -43,7 +43,7 @@ body {
         height: auto;
     }
 
-    &.hide-1st {
+    &.hide-ui {
         .chframe .control,
         #control {
             visibility: hidden;
@@ -56,12 +56,10 @@ body {
         }
     }
 
-    &.hide-2nd {
-        #chlist:not(.chosen) .broadcast-overview,
-        #chlist.chosen .listening .broadcast-overview {
-            visibility: hidden;
-            opacity: 0;
-        }
+    &.hide-overview .overview,
+    &.hide-listening-overview .listening .overview {
+        visibility: hidden;
+        opacity: 0;
     }
 }
 

@@ -209,16 +209,17 @@ class UIController {
     showAndHide(): void {
         if (this.hideTimer) clearTimeout(this.hideTimer);
         if (this.delayHideTimer) clearTimeout(this.delayHideTimer);
-        this.wrap.classList.remove('hide-1st');
-        this.wrap.classList.remove('hide-2nd');
+        this.wrap.classList.remove('hide-ui', 'hide-overview', 'hide-listening-overview');
         this.hideTimer = setTimeout(() => {
-            this.wrap.classList.add('hide-1st');
+            this.wrap.classList.add('hide-ui');
             const keepDisplay = this.keepDisplaySw.checked;
             const isChosen = this.chList.classList.contains('chosen');
             const noHide = keepDisplay && !isChosen;
             if (noHide) return;
+            const hideMainOnly = keepDisplay && isChosen;
+            const hideToken = hideMainOnly ? 'hide-listening-overview' : 'hide-overview';
             this.delayHideTimer = setTimeout(() => {
-                this.wrap.classList.add('hide-2nd');
+                this.wrap.classList.add(hideToken);
             }, 3000);
         }, 3000);
     }
