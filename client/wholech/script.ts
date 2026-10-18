@@ -12,7 +12,7 @@ const LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
 
 // UI制御クラス
 class UIController {
-    static readonly CHOICED_TILE = [
+    static readonly CHOSEN_TILE = [
         [-1, -1, -1, 6],
         [-1, -1, -1, 5],
         [-1, -1, -1, 4],
@@ -141,11 +141,11 @@ class UIController {
         }
         const index = chFrames.indexOf(current);
         let nextIndex = null as number | null;
-        const isChoiced = this.chList.classList.contains('choiced');
-        if (isChoiced) {
+        const isChosen = this.chList.classList.contains('chosen');
+        if (isChosen) {
             const listenFrameIndex = chFrames.findIndex(frame => frame.classList.contains('listening'));
             if (listenFrameIndex === -1) return;
-            const tile = UIController.CHOICED_TILE;
+            const tile = UIController.CHOSEN_TILE;
             const cols = tile[0].length;
             const tileRow = tile.find(r => r.includes(index));
             if (!tileRow) return;
@@ -335,7 +335,7 @@ class Tuner {
         this.chFrames.forEach((frame, index) => {
             frame.video.muted = newStates[index];
         });
-        this.chList.classList.toggle('choiced', isSingleUnmute);
+        this.chList.classList.toggle('chosen', isSingleUnmute);
         if (isSingleUnmute) {
             this.chFrames.filter(frame => frame.focusable).forEach(frame => {
                 frame.focusable = false;

@@ -13,7 +13,7 @@ const LIVE_PLAYBACK_BUFFER_SECONDS_STABLE = 4.0;
 
 // UI制御クラス
 class UIController {
-    static readonly CHOICED_TILE = [
+    static readonly CHOSEN_TILE = [
         [-1, -1, -1, 6],
         [-1, -1, -1, 5],
         [-1, -1, -1, 4],
@@ -142,11 +142,11 @@ class UIController {
         }
         const index = chFrames.indexOf(current);
         let nextIndex = null as number | null;
-        const isChoiced = this.chList.classList.contains('choiced');
-        if (isChoiced) {
+        const isChosen = this.chList.classList.contains('chosen');
+        if (isChosen) {
             const listenFrameIndex = chFrames.findIndex(frame => frame.classList.contains('listening'));
             if (listenFrameIndex === -1) return;
-            const tile = UIController.CHOICED_TILE;
+            const tile = UIController.CHOSEN_TILE;
             const cols = tile[0].length;
             const tileRow = tile.find(r => r.includes(index));
             if (!tileRow) return;
@@ -318,7 +318,7 @@ class Tuner {
             }
             frame.elem.classList.toggle('listening', frame.isListening);
         });
-        this.chList.classList.toggle('choiced', isSingleListen);
+        this.chList.classList.toggle('chosen', isSingleListen);
     }
 }
 
