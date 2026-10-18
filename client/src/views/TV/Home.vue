@@ -88,10 +88,14 @@
                                          :style="`width:${ProgramUtils.getProgramProgress(channel.program_present)}%;`"></div>
                                 </div>
                             </router-link>
-                            <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech/"
-                                v-if="channels_type === '地デジ' && channels.length !== 0">
-                                全てのチャンネルを視聴
-                            </a>
+                            <div class="channel-container" v-if="channels_type === '地デジ' && channels.length !== 0">
+                                <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech/">
+                                    全てのチャンネルを視聴
+                                </a>
+                                <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech-old/">
+                                    全てのチャンネルを視聴(旧)
+                                </a>
+                            </div>
                             <div class="pinned-container d-flex justify-center align-center w-100"
                                 v-if="channels_type === 'ピン留め' && channels.length === 0">
                                 <div class="d-flex justify-center align-center flex-column">
@@ -575,6 +579,36 @@ export default defineComponent({
                 @media (hover: none) {
                     &:hover {
                         background: rgb(var(--v-theme-background-lighten-1));
+                    }
+                }
+
+                &-container {
+                    display: flex;
+                    flex-direction: column;
+                    position: relative;
+                    height: 270px;
+                    grid-row-gap: 10px;
+
+                    .channel {
+                        flex: 1;
+                        height: auto;
+                    }
+
+                    // 1列表示
+                    @media (max-width: 1007.9px) {
+                        height: auto;
+                    }
+                    @include tablet-vertical {
+                        height: auto;
+                        contain-intrinsic-height: auto 162.25px;
+                    }
+                    @include smartphone-horizontal {
+                        height: auto;
+                        contain-intrinsic-height: auto 125px;
+                    }
+                    @include smartphone-vertical {
+                        height: auto;
+                        contain-intrinsic-height: auto 162.25px;
                     }
                 }
 
