@@ -131,16 +131,9 @@ export default defineConfig({
                         url: 'wholech/',
                         icons: [
                             {
-                                src: '/assets/images/icons/wholech-192px.png',
+                                src: '/assets/images/icons/wholech.png',
                                 sizes: '192x192',
                                 type: 'image/png',
-                                purpose: 'maskable',
-                            },
-                            {
-                                src: '/assets/images/icons/wholech-512px.png',
-                                sizes: '512x512',
-                                type: 'image/png',
-                                purpose: 'maskable',
                             }
                         ]
                     },
@@ -150,16 +143,9 @@ export default defineConfig({
                         url: 'wholech-light/',
                         icons: [
                             {
-                                src: '/assets/images/icons/wholech-192px.png',
+                                src: '/assets/images/icons/wholech.png',
                                 sizes: '192x192',
                                 type: 'image/png',
-                                purpose: 'maskable',
-                            },
-                            {
-                                src: '/assets/images/icons/wholech-512px.png',
-                                sizes: '512x512',
-                                type: 'image/png',
-                                purpose: 'maskable',
                             }
                         ]
                     },
