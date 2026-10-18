@@ -26,7 +26,7 @@ export default defineConfig({
             input: {
                 top: resolve(__dirname, 'index.html'),
                 wholech: resolve(__dirname, 'wholech/index.html'),
-                wholechOld: resolve(__dirname, 'wholech-old/index.html'),
+                wholechLight: resolve(__dirname, 'wholech-light/index.html'),
             },
             output: {
                 assetFileNames: (assetInfo) => {
@@ -145,9 +145,9 @@ export default defineConfig({
                         ]
                     },
                     {
-                        name: 'まるごとch(旧)',
+                        name: 'まるごとch(軽量版)',
                         description: '地上波放送をまるごと視聴',
-                        url: 'wholech-old/',
+                        url: 'wholech-light/',
                         icons: [
                             {
                                 src: '/assets/images/icons/wholech-192px.png',
@@ -170,7 +170,7 @@ export default defineConfig({
                 // 古いキャッシュを自動削除する
                 cleanupOutdatedCaches: true,
                 // /api/, /cdn-cgi/(cloudflare) 以下のリクエストでは index.html を返さない
-                navigateFallbackDenylist: [/^\/api/, /^\/cdn-cgi/, /^\/wholech/, /^\/wholech-old/],
+                navigateFallbackDenylist: [/^\/api/, /^\/cdn-cgi/, /^\/wholech/, /^\/wholech-light/],
                 // キャッシュするファイルの最大サイズ
                 maximumFileSizeToCacheInBytes: 1024 * 1024 * 15,  // 15MB
             }

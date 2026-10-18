@@ -92,8 +92,8 @@
                                 <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech/">
                                     全てのチャンネルを視聴
                                 </a>
-                                <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech-old/">
-                                    全てのチャンネルを視聴(旧)
+                                <a v-ripple class="channel custom-link d-flex justify-center align-center" draggable="false" href="/wholech-light/">
+                                    全てのチャンネルを視聴(軽量版)
                                 </a>
                             </div>
                             <div class="pinned-container d-flex justify-center align-center w-100"
