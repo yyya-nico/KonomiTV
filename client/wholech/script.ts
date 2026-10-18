@@ -233,12 +233,11 @@ class UIController {
             this.wrap.classList.add('hide-ui');
             const keepDisplay = this.keepDisplaySw.checked;
             const isChosen = this.chList.classList.contains('chosen');
-            const noHide = keepDisplay && !isChosen;
-            if (noHide) return;
-            const hideMainOnly = keepDisplay && isChosen;
-            const hideToken = hideMainOnly ? 'hide-listening-overview' : 'hide-overview';
+            const shouldHideMain = keepDisplay && isChosen;
+            this.wrap.classList.toggle('hide-listening-overview', shouldHideMain);
+            if (keepDisplay) return;
             this.delayHideTimer = setTimeout(() => {
-                this.wrap.classList.add(hideToken);
+                this.wrap.classList.add('hide-overview');
             }, 3000);
         }, 3000);
     }
