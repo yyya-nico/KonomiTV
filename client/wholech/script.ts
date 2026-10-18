@@ -225,13 +225,16 @@ class UIController {
     showAndHide(): void {
         if (this.hideTimer) clearTimeout(this.hideTimer);
         if (this.delayHideTimer) clearTimeout(this.delayHideTimer);
-        this.wrap.classList.remove('hide-ui');
-        this.wrap.classList.remove('hide-info');
+        this.wrap.classList.remove('hide-1st');
+        this.wrap.classList.remove('hide-2nd');
         this.hideTimer = setTimeout(() => {
-            this.wrap.classList.add('hide-ui');
-            if (this.keepDisplaySw.checked) return;
+            this.wrap.classList.add('hide-1st');
+            const keepDisplay = this.keepDisplaySw.checked;
+            const isChosen = this.chList.classList.contains('chosen');
+            const noHide = keepDisplay && !isChosen;
+            if (noHide) return;
             this.delayHideTimer = setTimeout(() => {
-                this.wrap.classList.add('hide-info');
+                this.wrap.classList.add('hide-2nd');
             }, 3000);
         }, 3000);
     }
@@ -409,7 +412,7 @@ class ChannelFrame {
         this.focusable = false;
         this.elem.innerHTML = `
         <video playsinline controlsList="noremoteplayback" autoplay muted></video>
-        <div class="broadcast-wrap">
+        <div class="broadcast-overview">
             <div class="broadcast-channel-box">
                 <span class="broadcast-channel">${this.ch.remocon_id}</span>
                 <img class="broadcast-logo" src="${Utils.api_base_url}/channels/${this.ch.id}/logo" alt="${this.ch.name}">

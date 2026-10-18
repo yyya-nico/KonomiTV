@@ -43,14 +43,8 @@ body {
         height: auto;
     }
 
-    &.hide-ui {
-        .chframe {
-            .control {
-                visibility: hidden;
-                opacity: 0;
-            }
-        }
-
+    &.hide-1st {
+        .chframe .control,
         #control {
             visibility: hidden;
             opacity: 0;
@@ -62,12 +56,11 @@ body {
         }
     }
 
-    &.hide-info {
-        .chframe {
-            .broadcast-wrap {
-                visibility: hidden;
-                opacity: 0;
-            }
+    &.hide-2nd {
+        #chlist:not(.chosen) .broadcast-overview,
+        #chlist.chosen .listening .broadcast-overview {
+            visibility: hidden;
+            opacity: 0;
         }
     }
 }
@@ -135,7 +128,7 @@ body {
                 }
 
                 @include desktop {
-                    .broadcast-wrap {
+                    .broadcast-overview {
                         font-size: x-large;
                     }
 
@@ -185,7 +178,7 @@ body {
             height: 100%;
         }
 
-        .broadcast-wrap {
+        .broadcast-overview {
             width: 100%;
             height: 100%;
             position: absolute;
