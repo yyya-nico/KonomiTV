@@ -239,7 +239,7 @@ onUnmounted(() => {
         padding-top: 8px !important;
         padding-left: 8px !important;
         padding-right: 8px !important;
-        padding-bottom: 20px !important;
+        padding-bottom: calc(20px + 28px) !important;
     }
 
     :deep(.recorded-program-list) {

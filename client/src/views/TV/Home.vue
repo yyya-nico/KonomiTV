@@ -328,6 +328,7 @@ export default defineComponent({
         --channels-tab-height: 64px;
         --channels-list-padding-bottom: 12px;
         --bottom-navigation-height: 56px;
+        padding-bottom: 46px;
     }
 
     .channels-tab {
