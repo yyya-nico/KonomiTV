@@ -98,20 +98,20 @@ body {
             &.listening {
                 grid-area: main;
 
-                .broadcast-channel-box {
+                .channel {
                     gap: 4px;
                     top: 7px;
                     left: 6px;
                     z-index: 1;
                     background-color: transparent;
 
-                    .broadcast-logo {
+                    .channel-logo {
                         width: 35px;
                         height: 20px;
                     }
                 }
 
-                .broadcast-title {
+                .program {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
@@ -120,32 +120,32 @@ body {
                     height: auto;
                     padding: 8px 8px 8px 74px;
 
-                    .broadcast-time {
+                    .program-time {
                         flex-shrink: 0;
                         position: static;
                     }
                 }
 
                 @include desktop {
-                    .broadcast-overview {
+                    .overview {
                         font-size: x-large;
                     }
 
-                    .broadcast-channel-box {
+                    .channel {
                         top: 3px;
                         font-size: x-large;
 
-                        .broadcast-logo {
+                        .channel-logo {
                             width: 56px;
                             height: 32px;
                         }
                     }
 
-                    .broadcast-title {
+                    .program {
                         gap: 4px;
                         padding-left: 110px;
 
-                        .broadcast-time {
+                        .program-time {
                             font-size: large;
                         }
                     }
@@ -161,7 +161,7 @@ body {
 
         &:hover,
         &:focus {
-            .broadcast-title {
+            .program {
                 height: calc(1.2em * 3);
             }
         }
@@ -179,7 +179,7 @@ body {
             left: 0;
         }
 
-        .broadcast-overview {
+        .overview {
             width: 100%;
             height: 100%;
             position: absolute;
@@ -193,7 +193,7 @@ body {
                 visibility 0.3s;
         }
 
-        .broadcast-channel-box {
+        .channel {
             display: flex;
             align-items: center;
             gap: 2px;
@@ -205,7 +205,7 @@ body {
             border-radius: 4px;
             font-size: small;
 
-            .broadcast-logo {
+            .channel-logo {
                 width: 28px;
                 height: 16px;
                 object-fit: cover;
@@ -213,7 +213,7 @@ body {
             }
         }
 
-        .broadcast-title {
+        .program {
             position: absolute;
             left: 0;
             right: 0;
@@ -224,7 +224,7 @@ body {
             transition: height 0.5s;
             overflow: hidden;
 
-            .broadcast-time {
+            .program-time {
                 position: absolute;
                 top: 3em;
                 right: 0;

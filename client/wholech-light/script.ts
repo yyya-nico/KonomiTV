@@ -332,7 +332,7 @@ class ChannelFrame {
     elem: HTMLElement;
     img: HTMLImageElement;
     video: HTMLVideoElement;
-    broadcastTitle: HTMLElement;
+    program: HTMLElement;
     title: HTMLElement;
     startTime: HTMLElement;
     endTime: HTMLElement;
@@ -346,7 +346,7 @@ class ChannelFrame {
         this.elem = null as any;
         this.img = null as any;
         this.video = null as any;
-        this.broadcastTitle = null as any;
+        this.program = null as any;
         this.title = null as any;
         this.startTime = null as any;
         this.endTime = null as any;
@@ -374,27 +374,27 @@ class ChannelFrame {
         this.elem.innerHTML = `
         <img>
         <video playsinline controlsList="noremoteplayback" autoplay></video>
-        <div class="broadcast-overview">
-            <div class="broadcast-channel-box">
-                <span class="broadcast-channel">${this.ch.remocon_id}</span>
-                <img class="broadcast-logo" src="${Utils.api_base_url}/channels/${this.ch.id}/logo" alt="${this.ch.name}">
+        <div class="overview">
+            <div class="channel">
+                <span class="channel">${this.ch.remocon_id}</span>
+                <img class="channel-logo" src="${Utils.api_base_url}/channels/${this.ch.id}/logo" alt="${this.ch.name}">
             </div>
-            <div class="broadcast-title">
-                <span class="broadcast-title-id">${this.ch.program_present?.title ?? '(情報なし)'}</span>
-                <div class="broadcast-time">
-                    <span class="broadcast-start">${this.ch.program_present ? this.getFormattedTime(this.ch.program_present.start_time) : '--:--'}</span>
-                    <span class="broadcast-to">～</span>
-                    <span class="broadcast-end">${this.ch.program_present ? this.getFormattedTime(this.ch.program_present.end_time) : '--:--'}</span>
+            <div class="program">
+                <span class="program-title">${this.ch.program_present?.title ?? '(情報なし)'}</span>
+                <div class="program-time">
+                    <span class="program-start">${this.ch.program_present ? this.getFormattedTime(this.ch.program_present.start_time) : '--:--'}</span>
+                    <span class="program-to">～</span>
+                    <span class="program-end">${this.ch.program_present ? this.getFormattedTime(this.ch.program_present.end_time) : '--:--'}</span>
                 </div>
             </div>
         </div>
         `;
         this.img = this.elem.querySelector('img')!;
         this.video = this.elem.querySelector('video')!;
-        this.broadcastTitle = this.elem.querySelector('.broadcast-title')!;
-        this.title = this.elem.querySelector('.broadcast-title-id')!;
-        this.startTime = this.elem.querySelector('.broadcast-start')!;
-        this.endTime = this.elem.querySelector('.broadcast-end')!;
+        this.program = this.elem.querySelector('.program')!;
+        this.title = this.elem.querySelector('.program-title')!;
+        this.startTime = this.elem.querySelector('.program-start')!;
+        this.endTime = this.elem.querySelector('.program-end')!;
     }
 
     setupEventListeners(): void {
@@ -503,14 +503,14 @@ class ChannelFrame {
         const changed = diffFrom.toString() !== diffTo.toString();
         if (changed) {
             const html = `
-            <span class="broadcast-title-id">${ch.program_present?.title ?? '(情報なし)'}</span>
-            <div class="broadcast-time">
-                <span class="broadcast-start">${ch.program_present ? this.getFormattedTime(ch.program_present.start_time) : '--:--'}</span>
-                <span class="broadcast-to">～</span>
-                <span class="broadcast-end">${ch.program_present ? this.getFormattedTime(ch.program_present.end_time) : '--:--'}</span>
+            <span class="program-title">${ch.program_present?.title ?? '(情報なし)'}</span>
+            <div class="program-time">
+                <span class="program-start">${ch.program_present ? this.getFormattedTime(ch.program_present.start_time) : '--:--'}</span>
+                <span class="program-to">～</span>
+                <span class="program-end">${ch.program_present ? this.getFormattedTime(ch.program_present.end_time) : '--:--'}</span>
             </div>
             `;
-            this.broadcastTitle.innerHTML = html;
+            this.program.innerHTML = html;
         }
     }
 
