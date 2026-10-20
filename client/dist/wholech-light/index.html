@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>まるごとch on KonomiTV</title>
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/wholechLight-H95fGzIb.js"></script>
+  <script type="module" crossorigin src="/assets/wholechLight-CLnfuCXB.js"></script>
   <link rel="modulepreload" crossorigin href="/assets/SnackbarsStore-CTQASoNK.js">
   <link rel="modulepreload" crossorigin href="/assets/mpegts-DgTFbt7z.js">
   <link rel="modulepreload" crossorigin href="/assets/PlayerUtils-Dt93lBev.js">
-  <link rel="stylesheet" crossorigin href="/assets/wholechLight.-QXNeAEZ.css">
+  <link rel="stylesheet" crossorigin href="/assets/wholechLight.pRi3J3ks.css">
 <link rel="manifest" href="/manifest.webmanifest"></head>
 <body>
     <div id="wrap">
@@ -17,6 +17,19 @@
         </div>
         <div id="control">
             <a class="btn" href="/">KonomiTV</a>
+            <label class="quality-select-wrap" for="quality-select">
+                <span class="sr-only">画質</span>
+                <select id="quality-select" class="btn quality-select" title="映像品質">
+                    <option value="1080p-60fps">1080p (60fps)</option>
+                    <option value="1080p">1080p</option>
+                    <option value="810p">810p</option>
+                    <option value="720p">720p</option>
+                    <option value="540p">540p</option>
+                    <option value="480p">480p</option>
+                    <option value="360p" selected>360p</option>
+                    <option value="240p">240p</option>
+                </select>
+            </label>
             <button type="button" id="tile-split-view" class="btn" title="タイル分割表示(V)"><i class="material-icons">live_tv</i></button>
             <div class="togglesw btn" title="常に表示(D)">
                 <input type="checkbox" id="keepshowsw">
