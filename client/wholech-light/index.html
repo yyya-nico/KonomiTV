@@ -13,6 +13,19 @@
         </div>
         <div id="control">
             <a class="btn" href="/">KonomiTV</a>
+            <label class="quality-select-wrap" for="quality-select">
+                <span class="sr-only">画質</span>
+                <select id="quality-select" class="btn quality-select" title="映像品質">
+                    <option value="1080p-60fps">1080p (60fps)</option>
+                    <option value="1080p">1080p</option>
+                    <option value="810p">810p</option>
+                    <option value="720p">720p</option>
+                    <option value="540p">540p</option>
+                    <option value="480p">480p</option>
+                    <option value="360p" selected>360p</option>
+                    <option value="240p">240p</option>
+                </select>
+            </label>
             <button type="button" id="tile-split-view" class="btn" title="タイル分割表示(V)"><i class="material-icons">live_tv</i></button>
             <div class="togglesw btn" title="常に表示(D)">
                 <input type="checkbox" id="keepshowsw">

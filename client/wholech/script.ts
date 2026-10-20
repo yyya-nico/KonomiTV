@@ -6,6 +6,17 @@ import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
 import Utils from '@/utils';
 
+const LIVE_STREAMING_QUALITIES = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'] as const;
+const LIVE_STREAMING_QUALITY_STORAGE_KEY = 'wholech.live_streaming_quality';
+
+const getSelectedLiveStreamingQuality = (): typeof LIVE_STREAMING_QUALITIES[number] => {
+    const storedQuality = localStorage.getItem(LIVE_STREAMING_QUALITY_STORAGE_KEY);
+    if (storedQuality && LIVE_STREAMING_QUALITIES.includes(storedQuality as typeof LIVE_STREAMING_QUALITIES[number])) {
+        return storedQuality as typeof LIVE_STREAMING_QUALITIES[number];
+    }
+    return '360p';
+};
+
 // 組み込みプレイヤーと同様に、再生開始前に確保する再生バッファ (秒単位)
 // Wholech は低遅延モードを利用しないため、通常モードと同じ 4 秒程度の遅延を許容する
 const LIVE_PLAYBACK_BUFFER_SECONDS = 4.0;
@@ -452,11 +463,11 @@ class ChannelFrame {
 
     initPlayer(): void {
         if (mpegts.getFeatureList().mseLivePlayback) {
-            const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/360p/mpegts`;
+            const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/${getSelectedLiveStreamingQuality()}/mpegts`;
             this.player = mpegts.createPlayer({
                 type: 'mse',
                 isLive: true,
-                url: streamPath
+                url: streamPath,
             });
             this.player.attachMediaElement(this.video);
             this.reloadButton.addEventListener('click', (e: Event) => this.handleReload(e as MouseEvent));
@@ -493,6 +504,30 @@ class ChannelFrame {
     getPlaybackBufferSeconds(): number {
         if (this.video.buffered.length === 0) return 0;
         return Math.max(this.video.buffered.end(this.video.buffered.length - 1) - this.video.currentTime, 0);
+    }
+
+    reloadWithQuality(quality: string): void {
+        if (mpegts.getFeatureList().mseLivePlayback !== true) return;
+        const nextQuality = LIVE_STREAMING_QUALITIES.includes(quality as typeof LIVE_STREAMING_QUALITIES[number]) ? quality : getSelectedLiveStreamingQuality();
+        const currentPlayer = this.player;
+        // 再読み込み時に古い Player の canplay 待機処理が新しい映像へ干渉しないよう、世代を進める
+        this.playbackStartupGeneration++;
+        if (currentPlayer !== null) {
+            currentPlayer.unload();
+            currentPlayer.detachMediaElement();
+            currentPlayer.destroy();
+            this.player = null;
+        }
+        const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/${nextQuality}/mpegts`;
+        this.player = mpegts.createPlayer({
+            type: 'mse',
+            isLive: true,
+            url: streamPath,
+        });
+        this.player.attachMediaElement(this.video);
+        this.startPlaybackAfterBuffering();
+        this.player.load();
+        this.player.play();
     }
 
     handleReload(e: MouseEvent): void {
@@ -586,6 +621,7 @@ class App {
     volumeBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
+    qualitySelect: HTMLSelectElement;
     uiController: UIController;
     channelManager: ChannelManager;
     chFrames: ChannelFrame[];
@@ -599,6 +635,7 @@ class App {
         this.volumeBtn = document.getElementById('volumebutton') as HTMLButtonElement;
         this.keepDisplaySw = document.getElementById('keepshowsw') as HTMLInputElement;
         this.fullscreenBtn = document.getElementById('fsbutton') as HTMLButtonElement;
+        this.qualitySelect = document.getElementById('quality-select') as HTMLSelectElement;
 
         this.uiController = new UIController(this.wrap, this.chList, this.control, this.volumeBtn, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
@@ -610,6 +647,12 @@ class App {
     async init(): Promise<void> {
         await this.channelManager.updateChannels();
         this.createChannelFrames();
+        this.qualitySelect.value = getSelectedLiveStreamingQuality();
+        this.qualitySelect.addEventListener('change', () => {
+            const quality = this.qualitySelect.value as typeof LIVE_STREAMING_QUALITIES[number];
+            localStorage.setItem(LIVE_STREAMING_QUALITY_STORAGE_KEY, quality);
+            this.chFrames.forEach(frame => frame.reloadWithQuality(quality));
+        });
         this.uiController.setOnVolumeClick(() => this.tuner.tune('toggle-all'));
         this.uiController.setOnTuning((ch) => this.tuner.tune(ch));
         this.uiController.init();

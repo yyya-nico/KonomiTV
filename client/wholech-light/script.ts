@@ -6,6 +6,17 @@ import type { ILiveChannel, ILiveChannelsList } from '@/services/Channels';
 
 import Utils, { PlayerUtils } from '@/utils';
 
+const LIVE_STREAMING_QUALITIES = ['1080p-60fps', '1080p', '810p', '720p', '540p', '480p', '360p', '240p'] as const;
+const LIVE_STREAMING_QUALITY_STORAGE_KEY = 'wholech.live_streaming_quality';
+
+const getSelectedLiveStreamingQuality = (): typeof LIVE_STREAMING_QUALITIES[number] => {
+    const storedQuality = localStorage.getItem(LIVE_STREAMING_QUALITY_STORAGE_KEY);
+    if (storedQuality && LIVE_STREAMING_QUALITIES.includes(storedQuality as typeof LIVE_STREAMING_QUALITIES[number])) {
+        return storedQuality as typeof LIVE_STREAMING_QUALITIES[number];
+    }
+    return '360p';
+};
+
 // 組み込みプレイヤーと同様の仕組みとして、再生開始前に確保する再生バッファ (秒単位)
 // ネットワーク種別に応じて、通常で 1.5 秒、安定重視で 4 秒程度の遅延を許容する
 const LIVE_PLAYBACK_BUFFER_SECONDS = 1.5;
@@ -441,10 +452,11 @@ class ChannelFrame {
     }
 
     loadImage(): void {
-        if (this.img.getAttribute('src')) {
+        const quality = getSelectedLiveStreamingQuality();
+        const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/${quality}/i-mjpeg`;
+        if (this.img.getAttribute('src') === streamPath) {
             return;
         }
-        const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/360p/i-mjpeg`;
         this.img.src = streamPath;
     }
 
@@ -458,11 +470,11 @@ class ChannelFrame {
             // 同じ HTMLVideoElement に複数の Player を紐付けると MSE の状態が競合するため、必ず以前の Player を破棄する
             this.unloadVideo();
 
-            const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/360p/mpegts`;
+            const streamPath = `${Utils.api_base_url}/streams/live/${this.ch.display_channel_id}/${getSelectedLiveStreamingQuality()}/mpegts`;
             const player = mpegts.createPlayer({
                 type: 'mse',
                 isLive: true,
-                url: streamPath
+                url: streamPath,
             });
             this.player = player;
             player.attachMediaElement(this.video);
@@ -565,6 +577,7 @@ class App {
     tileSplitBtn: HTMLButtonElement;
     keepDisplaySw: HTMLInputElement;
     fullscreenBtn: HTMLButtonElement;
+    qualitySelect: HTMLSelectElement;
     uiController: UIController;
     channelManager: ChannelManager;
     chFrames: ChannelFrame[];
@@ -579,6 +592,7 @@ class App {
         this.tileSplitBtn = document.getElementById('tile-split-view') as HTMLButtonElement;
         this.keepDisplaySw = document.getElementById('keepshowsw') as HTMLInputElement;
         this.fullscreenBtn = document.getElementById('fsbutton') as HTMLButtonElement;
+        this.qualitySelect = document.getElementById('quality-select') as HTMLSelectElement;
 
         this.uiController = new UIController(this.wrap, this.chList, this.control, this.tileSplitBtn, this.keepDisplaySw, this.fullscreenBtn);
         this.channelManager = new ChannelManager();
@@ -590,6 +604,18 @@ class App {
     async init(): Promise<void> {
         await this.channelManager.updateChannels();
         this.createChannelFrames();
+        this.qualitySelect.value = getSelectedLiveStreamingQuality();
+        this.qualitySelect.addEventListener('change', () => {
+            const quality = this.qualitySelect.value as typeof LIVE_STREAMING_QUALITIES[number];
+            localStorage.setItem(LIVE_STREAMING_QUALITY_STORAGE_KEY, quality);
+            this.chFrames.forEach((frame) => {
+                frame.loadImage();
+                if (frame.isListening === true) {
+                    frame.unloadVideo();
+                    frame.loadVideo();
+                }
+            });
+        });
         this.uiController.setOnTuning((ch) => this.tuner.tune(ch));
         this.uiController.setOnTileSplitClick(() => this.tuner.tune('all'));
         this.uiController.init();
