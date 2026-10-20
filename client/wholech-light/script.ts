@@ -376,7 +376,7 @@ class ChannelFrame {
         <video playsinline controlsList="noremoteplayback" autoplay></video>
         <div class="overview">
             <div class="channel">
-                <span class="channel">${this.ch.remocon_id}</span>
+                <span class="channel-id">${this.ch.remocon_id}</span>
                 <img class="channel-logo" src="${Utils.api_base_url}/channels/${this.ch.id}/logo" alt="${this.ch.name}">
             </div>
             <div class="program">
