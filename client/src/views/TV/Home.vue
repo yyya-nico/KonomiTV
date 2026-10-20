@@ -588,7 +588,7 @@ export default defineComponent({
                     flex-direction: column;
                     position: relative;
                     height: 270px;
-                    grid-row-gap: 16px;
+                    grid-row-gap: 12px;
 
                     @include tablet-vertical {
                         grid-row-gap: 10px;
